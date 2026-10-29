@@ -16,6 +16,7 @@ class ExpectedBehavior(str, Enum):
     ANSWER = "answer"    # bot should answer from the docs
     REFUSE = "refuse"    # out of scope / unsafe: bot should decline
     HANDOFF = "handoff"  # bot should pass to a human
+    CLARIFY = "clarify"  # question is ambiguous: bot should ask a follow-up
 
 
 class Difficulty(str, Enum):
@@ -24,16 +25,30 @@ class Difficulty(str, Enum):
     HARD = "hard"
 
 
+class Origin(str, Enum):
+    GENERATED = "generated"  # written by an LLM
+    HUMAN = "human"          # written or rewritten by you
+
+
+class Split(str, Enum):
+    DEV = "dev"
+    HELDOUT = "heldout"
+
+
 class TestCase(BaseModel):
     __test__ = False  # stops pytest from trying to collect this class
 
     id: str
-    category: str                       # e.g. "factual", "off_topic", "adversarial"
+    category: str                        # e.g. "factual", "off_topic", "adversarial"
     question: str
-    reference_answer: str | None = None  # None for refuse/handoff cases
-    source_ref: str | None = None        # doc name + chunk/page the answer comes from
+    reference_answer: str | None = None  # None for refuse/handoff/clarify cases
+    source_ref: list[str] | None = None  # doc names + chunk/page the answer comes from
+    source_text: str | None = None       # exact passage the answer is based on
     expected_behavior: ExpectedBehavior = ExpectedBehavior.ANSWER
     difficulty: Difficulty = Difficulty.MEDIUM
+    origin: Origin = Origin.GENERATED
+    reviewed: bool = False               # has a human checked this case?
+    split: Split | None = None           # dev / heldout
 
     @field_validator("question")
     @classmethod
@@ -41,6 +56,14 @@ class TestCase(BaseModel):
         if not v.strip():
             raise ValueError("question must not be empty")
         return v.strip()
+
+    @field_validator("source_ref", mode="before")
+    @classmethod
+    def source_ref_to_list(cls, v):
+        # Old data stored a single string; wrap it so it still loads
+        if isinstance(v, str):
+            return [v]
+        return v
 
     @model_validator(mode="after")
     def answerable_needs_source(self) -> "TestCase":

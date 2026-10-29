@@ -1,0 +1,35 @@
+# Copy to configs/audit.yaml and edit. Never put API keys here (they live in .env).
+
+target:
+  name: my_rag_bot
+  type: python                              # python | http | file
+  entrypoint: examples/my_rag_bot/rag_bot.py
+  model: gemini/gemini-3.8-flash            # the model the bot uses (for the report)
+
+models:
+  generator: gemini/gemini-3.8-flash        # writes the test questions
+  judge: gemini/gemini-3.8-flash            # scores answers (use another family if you can)
+
+budget:
+  max_usd: 5.0                              # hard cap for one audit
+  timeout_s: 180
+  max_concurrency: 4
+
+paths:
+  docs_dir: data/demo/docs
+  testset: data/demo/testset.jsonl
+  database: data/audit.db
+  llm_cache: data/llm_cache.db
+
+testset:
+  holdout_fraction: 0.3                     # kept aside, not used while fixing the bot
+  categories:                               # about 120 cases in total
+    direct_factual: 25
+    paraphrased_informal: 20
+    numeric_policy: 15
+    unanswerable: 15
+    multi_hop: 12
+    off_topic: 10
+    adversarial: 10
+    ambiguous: 8
+    multi_intent: 5

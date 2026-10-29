@@ -15,12 +15,19 @@ env/
 # Secrets
 .env
 
+# Databases and caches
+*.db
+*.sqlite
+
 # Jupyter
 .ipynb_checkpoints/
 
-# Data (keep the folder, ignore its contents)
+# Data: ignore everything except the fictional demo material
 data/*
 !data/.gitkeep
+!data/docs/
+!data/demo/
+data/clients/
 
 # Editors / OS
 .vscode/

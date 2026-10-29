@@ -45,7 +45,7 @@ class LLMResponse:
 
 class LLMClient:
     def __init__(self, db_path: str = "data/llm_cache.db", budget_usd: float = 5.0,
-                 timeout_s: float = 60.0):
+                 timeout_s: float = 180.0):
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(db_path, check_same_thread=False)
         self.db.execute("CREATE TABLE IF NOT EXISTS cache (k TEXT PRIMARY KEY, v TEXT)")
@@ -62,7 +62,7 @@ class LLMClient:
 
     # ---------- public API ----------
     def complete(self, messages: list[dict], model: str, temperature: float = 0.0,
-                 max_tokens: int = 700, retries: int = 3,
+                 max_tokens: int = 700, retries: int = 4,
                  use_cache: bool = True) -> LLMResponse:
         key = self._key(messages, model, temperature, max_tokens)
 
@@ -127,7 +127,7 @@ class LLMClient:
                 self._log(model, 0, 0, 0.0, (time.perf_counter() - start) * 1000,
                           cached=False, error=repr(e))
                 if attempt < retries - 1:
-                    time.sleep(2 ** attempt)  # 1s, 2s, 4s...
+                    time.sleep(min(5 * 3 ** attempt, 60))  # 5s, 15s, 45s...
         raise last_err
 
     @staticmethod

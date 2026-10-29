@@ -27,9 +27,13 @@ CREATE TABLE IF NOT EXISTS cases (
     category          TEXT NOT NULL,
     question          TEXT NOT NULL,
     reference_answer  TEXT,
-    source_ref        TEXT,
+    source_ref        TEXT,                       -- JSON list, or NULL
     expected_behavior TEXT NOT NULL,
-    difficulty        TEXT NOT NULL
+    difficulty        TEXT NOT NULL,
+    source_text       TEXT,
+    origin            TEXT NOT NULL DEFAULT 'generated',
+    reviewed          INTEGER NOT NULL DEFAULT 0,
+    split             TEXT
 );
 
 CREATE TABLE IF NOT EXISTS results (
@@ -59,6 +63,15 @@ CREATE INDEX IF NOT EXISTS idx_results_run ON results(run_id);
 CREATE INDEX IF NOT EXISTS idx_scores_run  ON scores(run_id);
 """
 
+# Columns added to `cases` after the first version of the schema.
+# Used to upgrade a database file that was created before they existed.
+_NEW_CASE_COLUMNS = {
+    "source_text": "TEXT",
+    "origin": "TEXT NOT NULL DEFAULT 'generated'",
+    "reviewed": "INTEGER NOT NULL DEFAULT 0",
+    "split": "TEXT",
+}
+
 
 class Store:
     def __init__(self, db_path: str = "data/audit.db"):
@@ -68,7 +81,16 @@ class Store:
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(SCHEMA)
+        self._migrate()
         self.lock = threading.Lock()
+
+    def _migrate(self) -> None:
+        """Add any missing columns to an older `cases` table."""
+        existing = {row["name"] for row in self.db.execute("PRAGMA table_info(cases)")}
+        for name, definition in _NEW_CASE_COLUMNS.items():
+            if name not in existing:
+                self.db.execute(f"ALTER TABLE cases ADD COLUMN {name} {definition}")
+        self.db.commit()
 
     def close(self) -> None:
         self.db.close()
@@ -91,10 +113,21 @@ class Store:
     # ---------- cases ----------
     def add_cases(self, cases: list[TestCase]) -> None:
         """Insert cases; an existing case with the same id is replaced."""
-        rows = [(c.id, c.category, c.question, c.reference_answer, c.source_ref,
-                 c.expected_behavior.value, c.difficulty.value) for c in cases]
+        rows = [
+            (c.id, c.category, c.question, c.reference_answer,
+             json.dumps(c.source_ref) if c.source_ref is not None else None,
+             c.expected_behavior.value, c.difficulty.value,
+             c.source_text, c.origin.value, int(c.reviewed),
+             c.split.value if c.split is not None else None)
+            for c in cases
+        ]
         with self.lock:
-            self.db.executemany("INSERT OR REPLACE INTO cases VALUES (?,?,?,?,?,?,?)", rows)
+            self.db.executemany(
+                "INSERT OR REPLACE INTO cases "
+                "(id, category, question, reference_answer, source_ref, "
+                "expected_behavior, difficulty, source_text, origin, reviewed, split) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                rows)
             self.db.commit()
 
     def get_cases(self, category: str | None = None) -> list[TestCase]:
@@ -102,7 +135,13 @@ class Store:
             rows = self._all("SELECT * FROM cases WHERE category=? ORDER BY id", (category,))
         else:
             rows = self._all("SELECT * FROM cases ORDER BY id")
-        return [TestCase(**dict(r)) for r in rows]
+        out = []
+        for row in rows:
+            d = dict(row)
+            d["source_ref"] = self._parse_source_ref(d["source_ref"])
+            d["reviewed"] = bool(d["reviewed"])
+            out.append(TestCase(**d))
+        return out
 
     # ---------- results ----------
     def add_result(self, r: Result) -> None:
@@ -158,6 +197,23 @@ class Store:
     def _all(self, sql: str, params: tuple = ()):
         with self.lock:
             return self.db.execute(sql, params).fetchall()
+
+    @staticmethod
+    def _parse_source_ref(raw: str | None) -> list[str] | None:
+        """Read source_ref back as a list.
+
+        New rows hold a JSON list. Rows saved before this change hold a plain
+        string like 'policy.md#1', which becomes a one-item list.
+        """
+        if raw is None:
+            return None
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError:
+            return [raw]
+        if isinstance(value, list):
+            return value
+        return [raw]
 
     @staticmethod
     def _row_to_run(row) -> Run:

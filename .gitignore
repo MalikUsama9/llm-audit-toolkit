@@ -34,3 +34,5 @@ data/clients/
 .idea/
 .DS_Store
 Thumbs.db
+.env
+data/llm_cache.db

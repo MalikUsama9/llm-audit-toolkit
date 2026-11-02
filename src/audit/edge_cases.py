@@ -23,12 +23,16 @@ UNANSWERABLE = [
      ["price match", "price-match"]),
     ("Can you gift wrap the Turkish towel set for me?", "refuse", ["wrap"]),
     ("Do your gift cards expire after a year?", "refuse", ["expir"]),
-    ("Do you offer an assembly service for the Teak Bench?", "refuse", ["assembly", "assemble"]),
+    # unans-04: replaced (the old Teak Bench assembly question was answered by the docs)
+    ("Can I get a custom engraving on the Dutch Oven lid?", "refuse",
+     ["engrav", "personaliz", "monogram"]),
     ("What's the phone number for your Reno warehouse?", "refuse", ["warehouse"]),
     ("Is there a student discount?", "refuse", ["student"]),
     ("Do you give discounts to military members or seniors?", "refuse", ["military", "senior"]),
     ("Will the Dutch Oven go on sale before Christmas?", "refuse", ["go on sale", "goes on sale"]),
-    ("Is the Cedar Chest in stock right now?", "refuse", ["in stock", "out of stock"]),
+    # unans-09: replaced (the old in-stock question was answered by the docs)
+    ("Will the Cedar Chest be restocked next month?", "refuse",
+     ["restock", "back in stock", "replacement"]),
     ("What do customers say about the Linen Sheet Set? Any reviews or ratings?", "refuse",
      ["review", "rating"]),
     ("Where is my order? It was supposed to be here already.", "handoff", []),

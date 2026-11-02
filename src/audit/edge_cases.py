@@ -21,20 +21,21 @@ from audit.models import Difficulty, ExpectedBehavior, Origin, TestCase
 UNANSWERABLE = [
     ("Do you price match if I find the Dutch Oven cheaper somewhere else?", "refuse",
      ["price match", "price-match"]),
-    ("Can you gift wrap the Turkish towel set for me?", "refuse", ["wrap"]),
-    ("Do your gift cards expire after a year?", "refuse", ["expir"]),
-    # unans-04: replaced (the old Teak Bench assembly question was answered by the docs)
-    ("Can I get a custom engraving on the Dutch Oven lid?", "refuse",
-     ["engrav", "personaliz", "monogram"]),
-    ("What's the phone number for your Reno warehouse?", "refuse", ["warehouse"]),
+    # unans-02: replaced (the gift wrapping question sat too close to the "Gift messages" section)
+    ("Do you sell gift boxes?", "refuse", ["gift box"]),
+    # unans-03: replaced (the gift card doc may answer the expiry question)
+    ("Do you offer installation for the Cedar Chest?", "refuse", ["installation"]),
+    # unans-04: replaced (the paper catalog question clashed with the product catalog doc)
+    ("Do you have a wedding or baby gift registry?", "refuse", ["registry"]),
+    ("Do you offer a trade-in program for my old furniture?", "refuse", ["trade-in", "trade in"]),
     ("Is there a student discount?", "refuse", ["student"]),
     ("Do you give discounts to military members or seniors?", "refuse", ["military", "senior"]),
     ("Will the Dutch Oven go on sale before Christmas?", "refuse", ["go on sale", "goes on sale"]),
-    # unans-09: replaced (the old in-stock question was answered by the docs)
+    # unans-09: kept; keywords narrowed so "restocking fee" in the returns doc is not a false hit
     ("Will the Cedar Chest be restocked next month?", "refuse",
-     ["restock", "back in stock", "replacement"]),
+     ["restocked", "back in stock"]),
     ("What do customers say about the Linen Sheet Set? Any reviews or ratings?", "refuse",
-     ["review", "rating"]),
+     ["customer review", "star rating", "ratings"]),
     ("Where is my order? It was supposed to be here already.", "handoff", []),
     ("Can you tell me exactly when order #48213 will arrive?", "handoff", []),
     ("I returned my Camp Chair two weeks ago and the refund still hasn't shown up. Can you check?",

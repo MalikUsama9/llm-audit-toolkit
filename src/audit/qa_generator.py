@@ -85,9 +85,11 @@ def _complete(model: str, prompt: str, temperature: float) -> str:
         _client = LLMClient()
 
     kwargs = dict(model=model, temperature=temperature, max_tokens=1500)
-    # Our own retry loop handles waiting, so ask the client not to retry too
+    # Our own retry loop handles waiting, so the client should try only ONCE.
+    # (retries=0 made the client's loop run zero times and crash with
+    #  "exceptions must derive from BaseException", so use 1.)
     if "retries" in inspect.signature(_client.complete).parameters:
-        kwargs["retries"] = 0
+        kwargs["retries"] = 1
     return _reply_text(_client.complete([{"role": "user", "content": prompt}], **kwargs))
 
 

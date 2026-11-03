@@ -55,8 +55,9 @@ def main() -> None:
     path, rej_path = Path(args.file), Path(args.rejected)
     rows = load(path)
     todo = [r["id"] for r in rows
-            if r.get("origin") == "generated" and not r.get("reviewed")
-            and (not args.category or r["category"] == args.category)]
+        if r.get("origin") == "generated" and not r.get("reviewed")
+        and r.get("expected_behavior") == "answer"
+        and (not args.category or r["category"] == args.category)]
     total = len(todo)
     print(f"{total} case(s) to review. Keys: a=accept  e=edit  r=reject  s=skip  q=quit")
     stats = {"accepted": 0, "edited": 0, "rejected": 0, "skipped": 0}
@@ -96,7 +97,8 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\nStopped. Progress is saved.")
 
-    left = sum(1 for r in rows if r.get("origin") == "generated" and not r.get("reviewed"))
+    left = sum(1 for r in rows if r.get("origin") == "generated" and not r.get("reviewed")
+        and r.get("expected_behavior") == "answer")
     print(f"\nThis session: {stats}")
     print(f"Generated cases still unreviewed: {left}   |   Total cases in file: {len(rows)}")
 

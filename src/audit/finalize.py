@@ -1,10 +1,13 @@
-"""Block 4: merge, dedup (exact + embedding), difficulty tags, IDs -> testset.jsonl"""
+"""Block 4: merge, dedup (exact + embedding), optional trim, difficulty tags, IDs -> testset.jsonl"""
 import argparse, json, re
 from pathlib import Path
 
 # ---- change these if your TestCase fields have other names ----
-Q, CAT, SRC, ID, DIFF = "question", "category", "source_ref", "id", "difficulty"
+Q, CAT, SRC, ID, DIFF, ORIGIN = "question", "category", "source_ref", "id", "difficulty", "origin"
 # ----------------------------------------------------------------
+
+# config name -> name used in the data
+ALIASES = {"paraphrased_informal": "paraphrased"}
 
 def load(path):
     p = Path(path)
@@ -44,6 +47,32 @@ def embedding_dedup(rows, threshold):
                 pairs.append((sims[i][j], rows[i][Q], rows[j][Q]))
     return [r for k, r in enumerate(rows) if k not in drop], pairs
 
+def load_targets(config_path):
+    import yaml
+    data = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
+    raw = data["testset"]["categories"]
+    return {ALIASES.get(k, k): v for k, v in raw.items()}
+
+def trim(rows, targets):
+    """Cut GENERATED cases down to each category's target.
+    Human and edge cases are never dropped. Generated cases are sampled evenly
+    so every document stays represented."""
+    by_cat = {}
+    for idx, r in enumerate(rows):
+        by_cat.setdefault(r.get(CAT), []).append(idx)
+    drop = set()
+    for cat, idxs in by_cat.items():
+        if cat not in targets:
+            continue
+        gen = [i for i in idxs if rows[i].get(ORIGIN) == "generated"]
+        keep_n = max(targets[cat] - (len(idxs) - len(gen)), 0)
+        if len(gen) <= keep_n:
+            continue
+        step = len(gen) / keep_n if keep_n else 0
+        chosen = {gen[int(j * step)] for j in range(keep_n)} if keep_n else set()
+        drop |= set(gen) - chosen
+    return [r for i, r in enumerate(rows) if i not in drop], len(drop)
+
 def difficulty(r):
     q = r[Q]
     cat = str(r.get(CAT, "")).lower()
@@ -79,12 +108,14 @@ def assign_ids(rows):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--human", default="data/demo/draft_human.jsonl")
+    ap.add_argument("--human", default="data/demo/human_cases.jsonl")
     ap.add_argument("--edge", default="data/demo/draft_edge_cases.jsonl")
-    ap.add_argument("--gen", nargs="+",
-                    default=["data/demo/draft_generated.jsonl", "data/demo/draft_generated_2.jsonl"])
+    ap.add_argument("--gen", nargs="+", default=["data/demo/draft_generated_3.jsonl"])
     ap.add_argument("--out", default="data/demo/testset.jsonl")
     ap.add_argument("--threshold", type=float, default=0.90)
+    ap.add_argument("--trim", action="store_true",
+                    help="cut generated cases down to the targets in the config")
+    ap.add_argument("--config", default="configs/audit.yaml")
     ap.add_argument("--dry", action="store_true", help="report only, do not write")
     a = ap.parse_args()
 
@@ -102,13 +133,24 @@ def main():
     for s, kept, gone in pairs:
         print(f"  {s:.2f}  KEEP: {kept}\n        DROP: {gone}")
 
+    if a.trim:
+        targets = load_targets(a.config)
+        rows, n_cut = trim(rows, targets)
+        print(f"Trim to config targets removed {n_cut} generated cases -> {len(rows)}")
+
     for r in rows:
         r[DIFF] = difficulty(r)
     rows = assign_ids(rows)
 
     from collections import Counter
-    print("\nBy category:  ", dict(Counter(str(r.get(CAT)) for r in rows)))
+    counts = Counter(str(r.get(CAT)) for r in rows)
+    print("\nBy category:  ", dict(counts))
     print("By difficulty:", dict(Counter(r[DIFF] for r in rows)))
+    if a.trim:
+        short = {c: f"{counts.get(c, 0)}/{t}" for c, t in load_targets(a.config).items()
+                 if counts.get(c, 0) < t}
+        if short:
+            print("Still below target (have/target):", short)
 
     if a.dry:
         print("\nDry run, nothing written.")

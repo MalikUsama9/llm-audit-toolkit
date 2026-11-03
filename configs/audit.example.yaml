@@ -7,7 +7,7 @@ target:
   model: gemini/gemini-3.8-flash            # the model the bot uses (for the report)
 
 models:
-  generator: gemini/gemini-3.8-flash        # writes the test questions
+  generator: gemini/gemini-3.1-flash-lite   # writes the test questions
   judge: gemini/gemini-3.8-flash            # scores answers (use another family if you can)
 
 budget:

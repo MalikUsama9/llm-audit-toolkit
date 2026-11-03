@@ -3,11 +3,16 @@
 
 Usage (dry run on 10 chunks):
     python -m audit.qa_generator --limit 10
+
+Override the models without editing this file (PowerShell):
+    $env:AUDIT_GENERATOR_MODEL="gemini/gemini-3.1-flash-lite"
+    $env:AUDIT_FALLBACK_MODEL="gemini/gemini-3.5-flash-lite"
 """
 import argparse
 import inspect
 import json
 import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -25,14 +30,16 @@ logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 # ---------------------------------------------------------------------------
 # 1. LLM CLIENT (the only part you may need to edit)
 # ---------------------------------------------------------------------------
-GENERATOR_MODEL = "gemini/gemini-3.8-flash"
-FALLBACK_MODEL = None   # e.g. "claude-haiku-5-5" (needs ANTHROPIC_API_KEY). None = off.
+GENERATOR_MODEL = os.environ.get("AUDIT_GENERATOR_MODEL", "gemini/gemini-3.1-flash-lite")
+# Used automatically when the main model is busy or out of quota.
+# Set to None (or AUDIT_FALLBACK_MODEL="") to turn it off.
+FALLBACK_MODEL = os.environ.get("AUDIT_FALLBACK_MODEL", "gemini/gemini-3.5-flash-lite") or None
 
 MIN_GAP_SECONDS = 7        # pause after each real API call (free tier ~10 requests/min)
 BUSY_WAIT_SECONDS = 15     # wait before retrying a 503 "high demand" error
 QUOTA_WAIT_SECONDS = 65    # wait before retrying a 429 quota error (once)
 MAX_BUSY_ATTEMPTS = 3
-MAX_CONSECUTIVE_FAILURES = 3
+MAX_CONSECUTIVE_FAILURES = 8
 
 _client = None
 
@@ -53,7 +60,8 @@ def _is_quota(err: Exception) -> bool:
 def _is_busy(err: Exception) -> bool:
     t = _text(err)
     return any(m in t for m in ("503", "unavailable", "high demand", "overloaded",
-                                "timeout", "timed out", "temporarily"))
+                                "timeout", "timed out", "temporarily", "ssl", "eof",
+                                "connection"))
 
 
 def _reply_text(resp) -> str:
@@ -79,7 +87,7 @@ def _complete(model: str, prompt: str, temperature: float) -> str:
     kwargs = dict(model=model, temperature=temperature, max_tokens=1500)
     # Our own retry loop handles waiting, so ask the client not to retry too
     if "retries" in inspect.signature(_client.complete).parameters:
-        kwargs["retries"] = 1
+        kwargs["retries"] = 0
     return _reply_text(_client.complete([{"role": "user", "content": prompt}], **kwargs))
 
 
@@ -114,7 +122,7 @@ def call_llm(prompt: str, temperature: float = 0.0) -> str:
     """Send `prompt` to the generator model; use the fallback model if it is unavailable."""
     try:
         return _call_model(GENERATOR_MODEL, prompt, temperature)
-    except (QuotaExceeded, Exception) as e:
+    except Exception as e:
         if FALLBACK_MODEL and (isinstance(e, QuotaExceeded) or _is_busy(e)):
             print(f"  switching to fallback model {FALLBACK_MODEL}")
             return _call_model(FALLBACK_MODEL, prompt, temperature)
@@ -210,6 +218,9 @@ def main() -> None:
     ap.add_argument("--k", type=int, default=3, help="questions per chunk")
     args = ap.parse_args()
 
+    print(f"Generator model: {GENERATOR_MODEL}")
+    print(f"Fallback model:  {FALLBACK_MODEL or 'off'}\n")
+
     chunks = chunk_dir(args.docs)
     if args.limit:
         chunks = chunks[: args.limit]
@@ -218,25 +229,30 @@ def main() -> None:
     failed: list[str] = []
     in_a_row = 0
     quota_stop = False
-    for i, ch in enumerate(chunks, 1):
-        print(f"[{i}/{len(chunks)}] {ch.chunk_id}")
-        try:
-            new_rows = generate_for_chunk(ch, k=args.k)
-            in_a_row = 0
-        except QuotaExceeded as e:
-            print(f"  QUOTA EXCEEDED: {e}")
-            failed.extend(c.chunk_id for c in chunks[i - 1:])
-            quota_stop = True
-            break
-        except Exception as e:  # one bad chunk should not lose the whole run
-            print(f"  FAILED {ch.chunk_id}: {type(e).__name__}: {str(e)[:200]}")
-            failed.append(ch.chunk_id)
-            in_a_row += 1
-            if in_a_row >= MAX_CONSECUTIVE_FAILURES:
-                print(f"\nStopping: {MAX_CONSECUTIVE_FAILURES} chunks failed in a row.")
+    try:
+        for i, ch in enumerate(chunks, 1):
+            print(f"[{i}/{len(chunks)}] {ch.chunk_id}")
+            try:
+                new_rows = generate_for_chunk(ch, k=args.k)
+                in_a_row = 0
+            except QuotaExceeded as e:
+                print(f"  QUOTA EXCEEDED: {e}")
+                failed.extend(c.chunk_id for c in chunks[i - 1:])
+                quota_stop = True
                 break
-            continue
-        rows.extend(new_rows)
+            except Exception as e:  # one bad chunk should not lose the whole run
+                print(f"  FAILED {ch.chunk_id}: {type(e).__name__}: {str(e)[:200]}")
+                failed.append(ch.chunk_id)
+                in_a_row += 1
+                if in_a_row >= MAX_CONSECUTIVE_FAILURES:
+                    print(f"\nStopping: {MAX_CONSECUTIVE_FAILURES} chunks failed in a row.")
+                    break
+                continue
+            rows.extend(new_rows)
+    except KeyboardInterrupt:
+        print("\nStopped by you (Ctrl+C). Saving what was generated so far.")
+        failed.extend(c.chunk_id for c in chunks[len(rows) // max(args.k, 1):]
+                      if c.chunk_id not in failed)
 
     # Drop duplicate questions (same text, ignoring case and spacing)
     seen: set[str] = set()
@@ -269,9 +285,9 @@ def main() -> None:
     print(f"\nWrote {len(valid)} draft cases to {out}")
 
     if quota_stop:
-        print("\nThe API quota is used up. Wait (per-minute limits clear in a minute, "
-              "daily limits reset the next day), or set FALLBACK_MODEL / change "
-              "GENERATOR_MODEL, then run the same command again.")
+        print("\nThe API quota is used up on both models. Wait (per-minute limits clear in a "
+              "minute, daily limits reset the next day), or change the model names, "
+              "then run the same command again.")
     if failed:
         print(f"\n{len(failed)} chunk(s) not finished. Run the same command again later; "
               f"finished chunks are cached and will be skipped quickly:")

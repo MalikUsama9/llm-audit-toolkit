@@ -1,0 +1,5 @@
+﻿case_id,question,answer,contexts
+c001,How many days do I have to return an item?,30 days from delivery.,Returns - 30 days ||| Returns - exceptions
+c002,What is the cutoff time for overnight shipping?,Before 12:00 noon PT.,
+c003,What is the CEO's favourite colour?,I don't have that information.,
+c004,Question the client forgets to answer,,

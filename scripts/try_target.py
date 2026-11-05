@@ -1,7 +1,7 @@
 from audit.targets.python_target import PythonTarget
+from audit.llm.client import LLMClient
 
-# TODO: replace with your real client, e.g. from audit.llm import LLMClient
-llm = ...
+llm = LLMClient(db_path="data/llm_cache.db", budget_usd=1.0)
 
 target = PythonTarget.from_rag_bot(llm)
 

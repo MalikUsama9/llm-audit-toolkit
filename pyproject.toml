@@ -8,10 +8,18 @@ version = "0.1.0"
 description = "Toolkit for auditing LLM behavior"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "pydantic",
+    "pyyaml",
+    "httpx",
+    "litellm",
+]
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
+
+[project.scripts]
+audit = "audit.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -4,11 +4,11 @@ target:
   name: my_rag_bot
   type: python                              # python | http | file
   entrypoint: examples/my_rag_bot/rag_bot.py
-  model: gemini/gemini-3.8-flash            # the model the bot uses (for the report)
+  model: gemini/gemini-3.5-flash-lite       # the model the bot uses (for the report)
 
 models:
   generator: gemini/gemini-3.1-flash-lite   # writes the test questions
-  judge: gemini/gemini-3.8-flash            # scores answers (use another family if you can)
+  judge: gemini/gemini-3.1-flash-lite       # scores answers (use another family if you can)
 
 budget:
   max_usd: 5.0                              # hard cap for one audit

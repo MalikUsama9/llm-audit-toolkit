@@ -19,8 +19,17 @@ class _Strict(BaseModel):
 class TargetConfig(_Strict):
     name: str
     type: Literal["python", "http", "file"] = "python"
-    entrypoint: str | None = None   # python: path to the bot file; http: the URL
+    entrypoint: str | None = None   # python: path to the bot file
     model: str | None = None        # model the bot uses (recorded for the report)
+    # http target
+    url: str | None = None
+    headers: dict[str, str] | None = None
+    payload_template: dict | None = None
+    answer_path: str | None = None
+    contexts_path: str | None = None
+    timeout_s: float | None = None
+    # file target
+    answers_file: str | None = None  # CSV the client filled in
 
 
 class ModelsConfig(_Strict):

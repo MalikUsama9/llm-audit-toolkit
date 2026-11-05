@@ -141,11 +141,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"error: no run called '{run_id}' in {cfg.paths.database}")
         return 1
 
-    # results point at cases, so the cases must be in the database first
-    known = {c.id for c in store.get_cases()}
-    new = [c for c in cases if c.id not in known]
-    if new:
-        store.add_cases(new)
+    # results point at cases, so the cases must be in the database first.
+    # add_cases replaces rows with the same id, so edited cases are refreshed.
+    store.add_cases(cases)
 
     target = build_target(cfg)
     snapshot = {**target.config_snapshot(), "models": cfg.models.model_dump()}

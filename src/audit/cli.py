@@ -60,7 +60,12 @@ def build_target(cfg: AuditConfig) -> Target:
     if t.type == "python":
         from audit.llm.client import LLMClient
         from audit.targets.python_target import PythonTarget
-        target = PythonTarget.from_rag_bot(LLMClient(), name=t.name)
+        # The spending cap and cache path come from the YAML, not the client defaults.
+        client = LLMClient(
+            db_path=cfg.paths.llm_cache,
+            budget_usd=cfg.budget.max_usd,
+        )
+        target = PythonTarget.from_rag_bot(client, name=t.name)
         if t.model:                      # the model named in the YAML wins
             target.config.model = t.model
         return target

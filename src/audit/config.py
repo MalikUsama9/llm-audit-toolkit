@@ -44,6 +44,22 @@ class ModelsConfig(_Strict):
         return v.strip()
 
 
+class JudgeConfig(_Strict):
+    """Settings for the judge that scores the bot's answers."""
+    model: str                                   # e.g. groq/openai/gpt-oss-120b
+    temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+    max_tokens: int = Field(default=800, ge=1)
+    rubric_dir: str = "configs/rubrics"
+    budget_usd: float = Field(default=3.0, gt=0)  # spending cap for judging
+
+    @field_validator("model")
+    @classmethod
+    def model_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("judge model name must not be empty")
+        return v.strip()
+
+
 class BudgetConfig(_Strict):
     max_usd: float = Field(gt=0, description="hard spending cap for one audit")
     timeout_s: float = Field(default=180.0, gt=0)
@@ -80,6 +96,7 @@ class TestsetConfig(_Strict):
 class AuditConfig(_Strict):
     target: TargetConfig
     models: ModelsConfig
+    judge: JudgeConfig | None = None
     budget: BudgetConfig
     paths: PathsConfig = PathsConfig()
     testset: TestsetConfig
@@ -93,6 +110,9 @@ class AuditConfig(_Strict):
                        "scores may be biased toward the bot's own style.")
         if self.models.generator == self.models.judge:
             out.append("Test generator and judge are the same model; note this in the limitations.")
+        if self.judge and self.judge.model != self.models.judge:
+            out.append(f"judge.model ({self.judge.model}) differs from models.judge "
+                       f"({self.models.judge}); keep them identical.")
         return out
 
 

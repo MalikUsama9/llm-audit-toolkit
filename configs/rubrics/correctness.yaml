@@ -1,0 +1,47 @@
+name: correctness
+version: "1.0"
+applies_to: "answerable cases"
+rules:
+  - "Length is not quality. A longer or more confident answer is not better."
+  - "Material claims only: judge numbers, dates, policies, names and conditions. Ignore greetings and filler."
+  - "Grade only against the reference answer and the source excerpt, never your own knowledge."
+  - "List the factual claims first, check each against the source, and give the verdict last."
+labels:
+  correct:
+    definition: "Every material fact in the reference answer is present and nothing is contradicted."
+    borderline: "Bot words the return window differently from the reference but states the same 30 days. Still correct."
+  partially_correct:
+    definition: "At least one material fact is right, but another is missing, wrong, or a required condition is dropped."
+    borderline: "Bot says returns are accepted within 30 days but omits that the item must be unopened."
+  incorrect:
+    definition: "The key fact is wrong or contradicts the reference, or the question is not actually answered."
+    borderline: "Bot gives 14 days where the reference says 30."
+few_shot:
+  - case_id: "add-003"
+    question: "I'm having a hard time using your website, is there another way I can place an order?"
+    reference: "Yes, if you have trouble using our website, you can contact us and we will help you place your order by phone or email."
+    source: "If you have trouble using our website, tell us and we will help you place your order by phone or email."
+    bot_answer: "Yes! If you are having trouble using our website, please let us know and we will help you place your order by phone or email."
+    claims:
+      - claim: "If you have trouble with the website, the company will help you place your order"
+        status: "supported"
+        evidence: "tell us and we will help you place your order by phone or email"
+      - claim: "The order can be placed by phone or email"
+        status: "supported"
+        evidence: "by phone or email"
+    verdict: "correct"
+    reasoning: "Every material fact in the reference is present (help is offered, by phone or email) and nothing is added or contradicted."
+  - case_id: "add-006"
+    question: "I am a Tidewell Club member living in Alaska. If I order a heavy item, will I have to pay for shipping?"
+    reference: "Yes, you will have to pay the $19.95 heavy item surcharge. While Tidewell Club members receive free Standard shipping with no minimum, the FAQ states that this surcharge applies to heavy items and is not removed by free shipping offers."
+    source: "Tidewell Club members get free Standard shipping on all US orders with no minimum. Heavy items carry a $19.95 surcharge that free shipping does not remove."
+    bot_answer: "Hello! As a Tidewell Club member, you get free Standard shipping on all US orders (including Alaska and Hawaii) with no minimum order. However, please note that the heavy-item surcharge still applies. If you have any other questions, feel free to ask!"
+    claims:
+      - claim: "Club members get free Standard shipping on all US orders with no minimum"
+        status: "supported"
+        evidence: "Tidewell Club members get free Standard shipping on all US orders with no minimum."
+      - claim: "The heavy-item surcharge still applies"
+        status: "supported"
+        evidence: "Heavy items carry a $19.95 surcharge that free shipping does not remove."
+    verdict: "partially_correct"
+    reasoning: "The conclusion is right and nothing is invented, but the answer never states the $19.95 amount, which the reference includes as a material fact."

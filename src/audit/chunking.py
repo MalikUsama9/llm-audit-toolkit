@@ -79,4 +79,4 @@ def chunk_dir(folder: str) -> list[Chunk]:
     out = []
     for p in sorted(Path(folder).glob("*.md")):
         out.extend(chunk_markdown(p))
-    return out
+    return out  

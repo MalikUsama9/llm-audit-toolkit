@@ -15,9 +15,11 @@ for t in tables:
     print(f"\n[{t}] {n} rows")
     print("  columns:", cols)
 
-    # heuristic health checks on whichever table holds the bot answers
+    # heuristic health checks on answer/error columns
     ans_cols = [c for c in cols if "answer" in c.lower()]
     err_cols = [c for c in cols if "error" in c.lower()]
+    score_cols = [c for c in cols if "score" in c.lower() or "reason" in c.lower() or "judgment" in c.lower()]
+    
     if ans_cols:
         a = ans_cols[0]
         empty = cur.execute(
@@ -28,5 +30,11 @@ for t in tables:
         errs = cur.execute(
             f"SELECT COUNT(*) FROM {t} WHERE {e} IS NOT NULL AND TRIM({e}) <> ''").fetchone()[0]
         print(f"  rows with error ({e}): {errs}")
+    if score_cols:
+        print(f"  found score/reasoning columns: {score_cols}")
+        for sc in score_cols:
+            missing = cur.execute(
+                f"SELECT COUNT(*) FROM {t} WHERE {sc} IS NULL").fetchone()[0]
+            print(f"    missing values in {sc}: {missing}")
 
 con.close()

@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from audit.models import Run, Score, TestCase, Result
 
-
+    
 def test_valid_answerable_case():
     c = TestCase(id="q1", category="factual", question="What is the refund window?",
                  reference_answer="30 days", source_ref="refund_policy.md#2")

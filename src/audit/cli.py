@@ -1,10 +1,15 @@
-"""Command line: `audit run`.
+"""Command line: `audit run` and `audit check`.
 
     audit run --target configs/audit.yaml --testset data/demo/testset.jsonl --limit 5
     audit run --resume run_20261105_120000_ab12cd     # continue an earlier run
+    audit check --run run_20261105_120000_ab12cd      # deterministic checks
 
-Reads the config, builds the target, loads the test cases, calls run_audit(),
+`run` reads the config, builds the target, loads the test cases, calls run_audit(),
 prints progress while it works, and a summary (errors, p50/p95 latency) at the end.
+
+`check` runs the deterministic checks (empty, error, refusal, citation) on the saved
+answers of a run and stores each status in the `checks` table. These run before the
+judge. Empty and error answers are reported as their own row, never scored as wrong.
 """
 from __future__ import annotations
 
@@ -13,11 +18,13 @@ import asyncio
 import json
 import sys
 import uuid
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
 from pydantic import ValidationError
 
+from audit.checks import run_checks
 from audit.config import AuditConfig, load_config
 from audit.models import TestCase
 from audit.runner import run_audit
@@ -125,7 +132,7 @@ def print_summary(store: Store, run_id: str, case_ids: set[str], outcome: dict) 
     return len(errors)
 
 
-# ---------------------------------------------------------------- the command
+# ---------------------------------------------------------------- audit run
 def cmd_run(args: argparse.Namespace) -> int:
     cfg = load_config(args.target)
     for w in cfg.warnings():
@@ -176,6 +183,46 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0 if n_errors == 0 else 2
 
 
+# ---------------------------------------------------------------- audit check
+def cmd_check(args: argparse.Namespace) -> int:
+    """Run the deterministic checks on every saved answer of a run.
+
+    Each answer gets one row in the `checks` table. Empty and error answers are
+    reported as their own status and are never turned into a score of 0.
+    """
+    cfg = load_config(args.target)
+    store = Store(cfg.paths.database)
+
+    if store.get_run(args.run) is None:
+        print(f"error: no run called '{args.run}' in {cfg.paths.database}")
+        return 1
+
+    cases = {c.id: c for c in store.get_cases()}
+    results = store.get_results(args.run)
+    if not results:
+        print("No results to check.")
+        return 1
+
+    by_status: Counter = Counter()
+    by_expected: Counter = Counter()
+    for r in results:
+        chk = run_checks(r.answer, bot_error=r.error)
+        store.add_check(args.run, r.case_id, chk.status, chk.has_citation, chk.detail)
+        by_status[chk.status] += 1
+        case = cases.get(r.case_id)
+        expected = case.expected_behavior.value if case else "?"
+        by_expected[(expected, chk.status)] += 1
+
+    print(f"Run {args.run}: {len(results)} answers checked")
+    for status, n in sorted(by_status.items()):
+        print(f"  {status:10} {n}")
+    print("By expected behavior:")
+    for (expected, status), n in sorted(by_expected.items()):
+        print(f"  {expected:8} {status:10} {n}")
+    return 0
+
+
+# ---------------------------------------------------------------- parser
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="audit", description="LLM audit toolkit")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -192,6 +239,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--limit", type=int, default=None, metavar="N",
                      help="only run the first N cases")
     run.set_defaults(func=cmd_run)
+
+    chk = sub.add_parser("check", help="run deterministic checks on a run's saved answers")
+    chk.add_argument("--run", required=True, metavar="RUN_ID", help="the run to check")
+    chk.add_argument("--target", default="configs/audit.yaml",
+                     help="path to the audit YAML (default: configs/audit.yaml)")
+    chk.set_defaults(func=cmd_check)
     return parser
 
 

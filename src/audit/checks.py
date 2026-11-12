@@ -3,12 +3,19 @@ import re
 from dataclasses import dataclass
 
 REFUSAL_PATTERNS = [
-    r"\bi (can(?:no|')t|cannot|am unable to|'m unable to)\b.{0,40}\b(answer|help|provide|assist)",
-    r"\bi (don't|do not) (know|have (enough )?(information|context))",
-    r"\b(not (mentioned|specified|found|available) in (the )?(provided )?(context|documents?))",
-    r"\bno (relevant )?information (is )?(available|provided|found)",
+    # "I can't / cannot / am unable to ... answer/help/provide/assist"
+    r"\bi (?:can(?:no|')t|can not|cannot|am unable to)\b.{0,40}\b(?:answer|help|provide|assist|find)",
+    # "I'm unable to" / "I'm not able to"
+    r"\bi(?:'m| am) (?:not able|unable) to\b",
+    # "I don't know" / "I don't have that information / the details / enough context"
+    r"\bi (?:don't|do not) know\b",
+    r"\bi (?:don't|do not) have\b.{0,30}?\b(?:information|info|details|data|context)\b",
+    # "not mentioned in the context"
+    r"\bnot (?:mentioned|specified|found|available) in (?:the |my )?(?:provided )?(?:context|documents?)",
+    r"\bnot (?:in|within) my (?:context|knowledge)\b",
+    r"\bno (?:relevant )?information (?:is )?(?:available|provided|found)",
     r"\bi'?m sorry,? but\b",
-    r"\bunable to (find|answer)\b",
+    r"\bunable to (?:find|answer)\b",
 ]
 
 ERROR_PATTERNS = [
@@ -23,12 +30,20 @@ CITATION_PATTERNS = [
     r"\bsource[s]?:",          # Source: ...
 ]
 
+# Statuses that mean "do not send to the judge as a normal answer"
+SKIP_JUDGE_STATUSES = {"empty", "error"}
+
 
 @dataclass
 class CheckResult:
-    status: str          # "ok" | "empty" | "error" | "refusal"
+    status: str          # "ok" | "empty" | "error" | "refusal" | "partial"
     has_citation: bool
     detail: str = ""
+
+
+def _normalize(text: str) -> str:
+    """Turn curly quotes into straight ones so patterns like "don't" always match."""
+    return text.replace("\u2019", "'").replace("\u2018", "'")
 
 
 def is_empty(answer) -> bool:
@@ -48,15 +63,18 @@ def has_citation(answer: str) -> bool:
 
 
 def run_checks(answer, bot_error=None) -> CheckResult:
-    """Order matters: error/empty first, then refusal."""
+    """Order matters: error/empty first, then refusal/partial."""
     if bot_error:
         return CheckResult("error", False, f"bot raised: {bot_error}")
     if is_empty(answer):
         return CheckResult("empty", False, "empty answer")
-    answer = str(answer)
+    answer = _normalize(str(answer))
     if is_error(answer) and len(answer) < 300:   # short + error words = likely an error message
         return CheckResult("error", False, "looks like an error message")
     cite = has_citation(answer)
     if is_refusal(answer):
+        if cite:
+            # Real, cited answer that declines only part of the question
+            return CheckResult("partial", cite, "cited answer, then declined part")
         return CheckResult("refusal", cite, "matched refusal pattern")
     return CheckResult("ok", cite)

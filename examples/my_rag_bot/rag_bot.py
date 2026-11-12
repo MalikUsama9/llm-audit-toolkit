@@ -34,7 +34,7 @@ SYSTEM_PROMPT = (
 # ---------------------------------------------------------------- config
 @dataclass
 class BotConfig:
-    model: str = "gemini/gemini-3.5-flash-lite"
+    model: str = "gemini/gemini-3.8-flash"
     top_k: int = 4                  # chunks given to the LLM
     temperature: float = 0.0
     max_tokens: int = 1500          # generous: some models "think" before answering

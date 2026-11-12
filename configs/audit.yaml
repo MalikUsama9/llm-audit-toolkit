@@ -13,7 +13,7 @@ models:
 judge:
   model: "groq/openai/gpt-oss-120b"         # keep identical to models.judge above
   temperature: 0.0
-  max_tokens: 800
+  max_tokens: 2000                          # reasoning model: thinking tokens count too
   rubric_dir: "configs/rubrics"
   budget_usd: 3.00
 

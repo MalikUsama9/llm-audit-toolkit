@@ -1,0 +1,2 @@
+{"id": "c001", "input": "Summarize: ...", "output": "The model's answer here"}
+{"id": "c002", "input": "Return JSON with keys name, age", "output": "{\"name\": \"Ann\", \"age\": 31}"}

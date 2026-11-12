@@ -1,11 +1,14 @@
 name: faithfulness
-version: "1.0"
+version: "1.2"
 applies_to: "answerable and unanswerable cases (claim level)"
 rules:
   - "Length is not quality. Do not reward detail that the source does not support."
   - "Material claims only: ignore greetings, apologies and filler. Check numbers, dates, policies, names and conditions."
   - "For every supported or contradicted claim, quote a short evidence snippet from the source or reference."
   - "The case-level hallucination flag is computed in code (any claim not supported), not by you."
+  - "A refusal, abstention or clarifying question (for example 'I don't have that information' or 'what do you mean by it?') is not a factual claim. Do not list it, and do not list offers of help or support contact details given as a fallback."
+  - "If the answer makes no factual claims (for example it only refuses), return an empty claims list and verdict supported."
+  - "Keep reasoning to 2-4 sentences."
 labels:
   supported:
     definition: "The source excerpt or reference backs the claim."

@@ -1,4 +1,4 @@
-"""SQLite store: runs, cases, results, scores.
+"""SQLite store: runs, cases, results, checks, scores.
 
 One database file holds everything for an audit, so runs can be compared later.
 Rows go in and out as the Pydantic models from models.py.
@@ -59,8 +59,22 @@ CREATE TABLE IF NOT EXISTS scores (
     FOREIGN KEY (run_id, case_id) REFERENCES results(run_id, case_id)
 );
 
+-- Deterministic check result for each answer. Kept apart from `scores` so that
+-- empty / error / refusal rows are reported as their own row and never averaged
+-- in as a score of 0.
+CREATE TABLE IF NOT EXISTS checks (
+    run_id       TEXT NOT NULL,
+    case_id      TEXT NOT NULL,
+    status       TEXT NOT NULL,                  -- ok | empty | error | refusal | partial
+    has_citation INTEGER NOT NULL DEFAULT 0,
+    detail       TEXT,
+    PRIMARY KEY (run_id, case_id),
+    FOREIGN KEY (run_id, case_id) REFERENCES results(run_id, case_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_results_run ON results(run_id);
 CREATE INDEX IF NOT EXISTS idx_scores_run  ON scores(run_id);
+CREATE INDEX IF NOT EXISTS idx_checks_run  ON checks(run_id);
 """
 
 # Columns added to `cases` after the first version of the schema.
@@ -166,6 +180,19 @@ class Store:
         rows = self._all(
             "SELECT case_id FROM results WHERE run_id=? AND error IS NULL", (run_id,))
         return {r["case_id"] for r in rows}
+
+    # ---------- checks ----------
+    def add_check(self, run_id: str, case_id: str, status: str,
+                  has_citation: bool, detail: str = "") -> None:
+        """Save the deterministic check result for one answer (replaces an old one)."""
+        self._write(
+            "INSERT OR REPLACE INTO checks VALUES (?,?,?,?,?)",
+            (run_id, case_id, status, int(has_citation), detail))
+
+    def get_checks(self, run_id: str) -> dict[str, dict]:
+        """case_id -> check row. The judge uses this to skip empty/error answers."""
+        rows = self._all("SELECT * FROM checks WHERE run_id=?", (run_id,))
+        return {r["case_id"]: dict(r) for r in rows}
 
     # ---------- scores ----------
     def add_score(self, s: Score) -> None:

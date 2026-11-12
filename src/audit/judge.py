@@ -11,7 +11,10 @@ Design rules (from the assignment):
     are logged on every run.
   - The hallucination flag is computed HERE from the claim statuses. The judge
     never decides it.
+  - Deterministic checks run BEFORE the judge. Empty and error answers skip the
+    judge and are reported with their own status, never scored as "wrong".
 """
+import inspect
 import json
 import logging
 import re
@@ -22,9 +25,13 @@ from typing import Literal, Optional
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from .checks import CheckResult, SKIP_JUDGE_STATUSES, run_checks
+
 log = logging.getLogger("audit.judge")
 
 Status = Literal["supported", "contradicted", "not_in_source"]
+
+_WARNED_NO_CACHE_BYPASS = False
 
 
 # ---------------------------------------------------------------- schema
@@ -49,6 +56,7 @@ class JudgeResult:
     rubric_name: str
     rubric_version: str
     temperature: float
+    evidence_unverified: int = 0    # claims whose evidence quote was not found
 
 
 def hallucination_flag(claims: list[Claim]) -> bool:
@@ -56,17 +64,45 @@ def hallucination_flag(claims: list[Claim]) -> bool:
     return any(c.status != "supported" for c in claims)
 
 
+def _norm(s: str) -> str:
+    return " ".join(str(s).lower().split())
+
+
+def count_unverified_evidence(claims: list[Claim], source: str, reference: str) -> int:
+    """
+    Count claims whose evidence quote cannot be found in the source/reference.
+    "not_in_source" claims are skipped (they legitimately have no evidence).
+    A supported/contradicted claim with empty evidence also counts as unverified.
+    """
+    haystack = _norm(f"{source or ''}\n{reference or ''}")
+    n = 0
+    for c in claims:
+        if c.status == "not_in_source":
+            continue
+        ev = _norm(c.evidence)
+        if not ev or ev not in haystack:
+            n += 1
+    return n
+
+
 # ---------------------------------------------------------------- helpers
 def strip_fences(text: str) -> str:
-    """Remove ```json ... ``` fences that models sometimes wrap around JSON."""
+    """Remove ```json fences and any text around the JSON object."""
     t = text.strip()
     t = re.sub(r"^```[a-zA-Z]*\s*", "", t)
     t = re.sub(r"\s*```$", "", t)
-    return t.strip()
+    t = t.strip()
+    if not t.startswith("{"):
+        start, end = t.find("{"), t.rfind("}")
+        if start != -1 and end > start:
+            t = t[start:end + 1]
+    return t
 
 
 def load_rubric(name: str, rubric_dir: str = "configs/rubrics") -> dict:
     path = Path(rubric_dir) / f"{name}.yaml"
+    if not path.exists():
+        raise FileNotFoundError(f"Rubric file not found: {path.resolve()}")
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
@@ -92,6 +128,11 @@ def build_system_prompt(rubric: dict) -> str:
         'Keys in this order: "claims", "reasoning", "verdict".',
         '"claims" is a list of {"claim": str, "status": '
         '"supported"|"contradicted"|"not_in_source", "evidence": str}.',
+        "A claim is a factual statement about the world. Do NOT list refusals "
+        "(for example 'I don't have that information'), apologies, greetings or "
+        "offers of help as claims.",
+        '"evidence" must be a VERBATIM quote copied from the source excerpt '
+        "or reference answer (empty string for not_in_source).",
         f'"verdict" must be exactly one of: {sorted(rubric["labels"])}.',
         "List and check the claims BEFORE you decide the verdict.",
     ]
@@ -128,13 +169,41 @@ def build_user_prompt(question: str, reference: str, source: str, answer: str) -
 
 
 # ---------------------------------------------------------------- LLM call
+def _extract_text(resp) -> str:
+    """Turn whatever the client returns into a plain string."""
+    if isinstance(resp, str):
+        return resp
+    for attr in ("text", "content"):
+        val = getattr(resp, attr, None)
+        if isinstance(val, str) and val:
+            return val
+        if isinstance(val, list):  # list of content blocks
+            parts = []
+            for b in val:
+                if isinstance(b, dict):
+                    parts.append(b.get("text") or "")
+                else:
+                    parts.append(getattr(b, "text", "") or "")
+            joined = "".join(parts)
+            if joined:
+                return joined
+    return ""
+
+
+def _supports_use_cache(client) -> bool:
+    params = inspect.signature(client.complete).parameters
+    return "use_cache" in params or any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
+    )
+
+
 def _call_llm(client, cfg, system: str, user: str, use_cache: bool) -> str:
     """
-    ADAPT THIS ONE FUNCTION to your LLMClient in src/audit/llm/client.py.
-    Change the method name and argument names to match what your client
-    accepts. It must return the model's reply as a plain string.
+    Calls client.complete(messages, model, temperature, max_tokens[, use_cache]).
+    `use_cache` is only sent if the client accepts it. Returns the reply text.
     """
-    resp = client.complete(
+    global _WARNED_NO_CACHE_BYPASS
+    kwargs = dict(
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -142,16 +211,22 @@ def _call_llm(client, cfg, system: str, user: str, use_cache: bool) -> str:
         model=cfg.model,
         temperature=cfg.temperature,
         max_tokens=cfg.max_tokens,
-        use_cache=use_cache,
     )
-    if isinstance(resp, str):
-        return resp
-    return getattr(resp, "text", None) or getattr(resp, "content", None) or ""
+    if _supports_use_cache(client):
+        kwargs["use_cache"] = use_cache
+    elif not use_cache and not _WARNED_NO_CACHE_BYPASS:
+        _WARNED_NO_CACHE_BYPASS = True
+        log.warning(
+            "judge_retry_cannot_bypass_cache: client.complete() has no "
+            "use_cache argument, so the retry may replay the same cached reply"
+        )
+    return _extract_text(client.complete(**kwargs))
 
 
 def _parse(raw: str, labels: set) -> JudgeOutput:
     data = json.loads(strip_fences(raw))
     out = JudgeOutput.model_validate(data)
+    out.verdict = out.verdict.strip()
     if out.verdict not in labels:
         raise ValueError(f"verdict {out.verdict!r} not in {sorted(labels)}")
     return out
@@ -187,14 +262,22 @@ def judge_case(
         raw = ""
         try:
             raw = _call_llm(client, cfg, system, user, use_cache)
+            if not raw.strip():
+                log.warning(
+                    "judge_empty_reply case=%s metric=%s attempt=%d "
+                    "(model may have used all max_tokens on reasoning; "
+                    "consider raising judge.max_tokens)",
+                    case_id, rubric["name"], attempt,
+                )
             out = _parse(raw, labels)
         except (json.JSONDecodeError, ValidationError, ValueError) as e:
             log.warning(
-                "judge_parse_error case=%s metric=%s attempt=%d error=%s",
-                case_id, rubric["name"], attempt, e,
+                "judge_parse_error case=%s metric=%s attempt=%d error=%s raw=%r",
+                case_id, rubric["name"], attempt, e, str(raw)[:200],
             )
             continue
-        # Any other error (for example BudgetExceeded) is NOT caught here,
+        # Any other error (BudgetExceeded, TypeError from a wrong argument,
+        # network failure after the client's own retries) is NOT caught here,
         # so it stops the run instead of being retried and hidden.
         return JudgeResult(
             output=out,
@@ -203,6 +286,7 @@ def judge_case(
             rubric_name=rubric["name"],
             rubric_version=str(rubric.get("version")),
             temperature=cfg.temperature,
+            evidence_unverified=count_unverified_evidence(out.claims, source, reference),
         )
 
     log.error(
@@ -212,16 +296,62 @@ def judge_case(
     return None
 
 
+def judge_with_checks(
+    client,
+    cfg,
+    rubric: dict,
+    case_id: str,
+    question: str,
+    reference: str,
+    source: str,
+    answer: str,
+    bot_error: Optional[str] = None,
+) -> tuple[CheckResult, Optional[JudgeResult]]:
+    """
+    Run the deterministic checks first, then the judge only if the answer is usable.
+
+    Returns (check, judge_result):
+      - empty / error answers -> (check, None). The judge is NOT called, and the
+        caller should store the check status as its own row, not as a score of 0.
+      - everything else (ok, refusal, partial) -> (check, JudgeResult or None).
+        judge_result is None only when the judge itself failed ("judge_failure").
+    """
+    check = run_checks(answer, bot_error=bot_error)
+    if check.status in SKIP_JUDGE_STATUSES:
+        log.info(
+            "judge_skipped case=%s metric=%s check_status=%s detail=%s",
+            case_id, rubric["name"], check.status, check.detail,
+        )
+        return check, None
+
+    result = judge_case(
+        client, cfg, rubric, case_id, question, reference, source, str(answer),
+    )
+    return check, result
+
+
 # ---------------------------------------------------------------- offline test
 if __name__ == "__main__":
-    # Runs without any API call: python judge.py
+    # Runs without any API call: python -m src.audit.judge
     from types import SimpleNamespace
 
     logging.basicConfig(level=logging.INFO)
 
     assert strip_fences('```json\n{"a": 1}\n```') == '{"a": 1}'
+    assert strip_fences('Here you go: {"a": 1} hope it helps') == '{"a": 1}'
     assert hallucination_flag([Claim(claim="x", status="supported")]) is False
     assert hallucination_flag([Claim(claim="x", status="not_in_source")]) is True
+
+    # evidence verification
+    cl = [Claim(claim="a", status="supported", evidence="Paris is the capital"),
+          Claim(claim="b", status="supported", evidence="made up quote"),
+          Claim(claim="c", status="not_in_source", evidence="")]
+    assert count_unverified_evidence(cl, "Paris is the capital of France.", "") == 1
+
+    # client reply shapes
+    assert _extract_text("plain") == "plain"
+    assert _extract_text(SimpleNamespace(content=[SimpleNamespace(text="blk")])) == "blk"
+    assert _extract_text({"x": 1}) == ""
 
     rubric = {
         "name": "faithfulness", "version": "1.0",
@@ -230,6 +360,9 @@ if __name__ == "__main__":
         "rules": ["Length is not quality.", "Material claims only."],
     }
     cfg = SimpleNamespace(model="test-model", temperature=0.0, max_tokens=800)
+
+    # refusal rule is in the prompt
+    assert "Do NOT list refusals" in build_system_prompt(rubric)
 
     class FakeClient:
         def __init__(self, replies): self.replies, self.calls = list(replies), []
@@ -243,9 +376,51 @@ if __name__ == "__main__":
     c = FakeClient(["not json", good])
     r = judge_case(c, cfg, rubric, "t1", "q", "ref", "src", "ans")
     assert r is not None and r.hallucinated is True and c.calls == [True, False]
+    assert r.evidence_unverified == 0
 
     # two failures -> None
     c = FakeClient(["bad", "worse"])
     assert judge_case(c, cfg, rubric, "t2", "q", "ref", "src", "ans") is None
+
+    # empty reply -> logged, retried, then judge_failure
+    c = FakeClient(["", ""])
+    assert judge_case(c, cfg, rubric, "t2b", "q", "ref", "src", "ans") is None
+
+    # empty answer -> judge is NOT called, status reported as "empty"
+    c = FakeClient([])
+    chk, res = judge_with_checks(c, cfg, rubric, "t3", "q", "ref", "src", "")
+    assert chk.status == "empty" and res is None and c.calls == []
+
+    # bot error -> judge is NOT called, status reported as "error"
+    c = FakeClient([])
+    chk, res = judge_with_checks(c, cfg, rubric, "t4", "q", "ref", "src", "x", bot_error="timeout")
+    assert chk.status == "error" and res is None and c.calls == []
+
+    # normal answer -> judge IS called
+    c = FakeClient([good])
+    chk, res = judge_with_checks(c, cfg, rubric, "t5", "q", "ref", "src", "Paris [1].")
+    assert chk.status == "ok" and res is not None and len(c.calls) == 1
+
+    # client with NO use_cache argument
+    class NoCacheClient:
+        def __init__(self, replies): self.replies, self.n = list(replies), 0
+        def complete(self, messages, model, temperature, max_tokens, retries=4):
+            self.n += 1
+            return SimpleNamespace(text=self.replies.pop(0))
+
+    c = NoCacheClient([good])
+    r = judge_case(c, cfg, rubric, "t6", "q", "ref", "src", "ans")
+    assert r is not None and c.n == 1
+
+    # a wrong-argument bug must NOT be hidden as judge_failure
+    class BrokenClient:
+        def complete(self, prompt):
+            return "x"
+
+    try:
+        judge_case(BrokenClient(), cfg, rubric, "t7", "q", "ref", "src", "ans")
+        raise SystemExit("expected TypeError")
+    except TypeError:
+        pass
 
     print("judge.py offline checks passed")

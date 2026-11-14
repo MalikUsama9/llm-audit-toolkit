@@ -3,7 +3,7 @@
 target:
   name: my_rag_bot_k2
   type: python                              # python | http | file
-  entrypoint: examples/my_rag_bot/rag_bot_k2.py
+  entrypoint: examples/my_rag_bot/rag_bot_k2_v2.py
   model: gemini/gemini-3.5-flash-lite       # the model the bot uses (for the report)
 
 models:

@@ -1,4 +1,4 @@
-"""My simple RAG bot: the first target to audit.
+﻿"""My simple RAG bot: the first target to audit.
 
 How it works:
   1. Split the demo documents into chunks (one chunk per "## section").
@@ -20,14 +20,14 @@ from pathlib import Path
 
 DEFAULT_DOCS_DIR = Path(__file__).resolve().parents[2] / "data" / "demo" / "docs"
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 SYSTEM_PROMPT = (
     "You are the customer support assistant for Tidewell Home, an online shop.\n"
     "Answer the customer's question using ONLY the information in the CONTEXT.\n"
     "If the CONTEXT does not contain the answer, say you don't have that information "
     "and suggest contacting support at support@tidewellhome.example.\n"
     "Do not answer questions that are unrelated to Tidewell Home.\n"
-    "Be friendly and concise."
+    "Be friendly. Answer in at most 2 short sentences, then ask if there is anything else you can help with."
 )
 
 
@@ -190,3 +190,4 @@ class RagBot:
             cost_usd=resp.cost_usd,
             latency_ms=resp.latency_ms if not resp.cached else total_ms,
         )
+

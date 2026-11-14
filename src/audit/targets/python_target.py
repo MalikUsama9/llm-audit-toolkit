@@ -8,6 +8,18 @@ from pathlib import Path
 from audit.targets.base import Target, TargetResponse
 
 
+def _load_bot_module(entrypoint):
+    """Load the bot file named in the YAML entrypoint (default: rag_bot.py)."""
+    import importlib.util
+    path = Path(entrypoint or "examples/my_rag_bot/rag_bot.py").resolve()
+    sys.path.insert(0, str(path.parent))
+    spec = importlib.util.spec_from_file_location("bot_" + path.stem, path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
 class PythonTarget(Target):
     def __init__(self, bot, name: str = "my_rag_bot", config=None):
         self.bot = bot
@@ -15,10 +27,11 @@ class PythonTarget(Target):
         self.config = config          # the bot's BotConfig, used for the snapshot
 
     @classmethod
-    def from_rag_bot(cls, llm, config=None, name: str = "my_rag_bot"):
+    def from_rag_bot(cls, llm, config=None, name: str = "my_rag_bot", entrypoint=None):
         """Build the demo bot. `llm` is the object with .complete(...)."""
         sys.path.insert(0, str(Path("examples/my_rag_bot").resolve()))
-        from rag_bot import BotConfig, RagBot      # imported here so the path is set first
+        mod = _load_bot_module(entrypoint)
+        BotConfig, RagBot = mod.BotConfig, mod.RagBot
 
         config = config or BotConfig()
         return cls(RagBot(config, llm=llm), name=name, config=config)

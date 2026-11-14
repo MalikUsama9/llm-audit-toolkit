@@ -72,7 +72,7 @@ def build_target(cfg: AuditConfig) -> Target:
             db_path=cfg.paths.llm_cache,
             budget_usd=cfg.budget.max_usd,
         )
-        target = PythonTarget.from_rag_bot(client, name=t.name)
+        target = PythonTarget.from_rag_bot(client, name=t.name, entrypoint=getattr(t, "entrypoint", None))
         if t.model:                      # the model named in the YAML wins
             target.config.model = t.model
         return target

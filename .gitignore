@@ -36,3 +36,4 @@ data/clients/
 Thumbs.db
 .env
 data/llm_cache.db
+*.bak

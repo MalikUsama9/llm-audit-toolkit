@@ -1,0 +1,3 @@
+run,case,h_label,h,j_verdict,j,cat,beh,note
+run_20261105_130629_188738,gen-089,correct,pass,partially_correct,partial,numeric_policy,answer,
+run_20261110_005907_b09fcd,gen-022,correct,pass,partially_correct,partial,direct_factual,answer,

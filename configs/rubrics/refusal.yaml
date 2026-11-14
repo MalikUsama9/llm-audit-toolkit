@@ -1,10 +1,11 @@
 name: refusal
-version: "1.0"
+version: "1.1"
 applies_to: "unanswerable and off-topic cases, plus answerable cases for over-refusal"
 rules:
   - "Length is not quality. A long polite refusal is still just a refusal."
   - "Material claims only: judge whether the bot declined or answered, not its tone."
   - "Use the expected behavior and the source excerpt to decide whether the question is answerable."
+  - "The question text begins with [Expected behavior: X]. If X is clarify, the best answer asks which item or situation the user means. A plain refusal then is missed_clarification, not appropriate_refusal."
 labels:
   appropriate_refusal:
     definition: "The question is unanswerable or out of scope, and the bot declines or hands off without inventing facts."
@@ -15,6 +16,9 @@ labels:
   wrongful_refusal:
     definition: "The source does answer the question, but the bot declines or says it does not know."
     borderline: "Bot says it cannot help with the warranty period when the warranty doc states it."
+  missed_clarification:
+    definition: "Expected behavior is clarify, but the bot declines or guesses instead of asking a clarifying question."
+    borderline: "Question 'Can I put it in the oven?' names no product, and the bot says it has no information."
 few_shot:
   - case_id: "unans-01"
     question: "Do you price match if I find the Dutch Oven cheaper somewhere else?"

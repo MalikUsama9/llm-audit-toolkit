@@ -1,0 +1,42 @@
+# Copy to configs/audit.yaml and edit. Never put API keys here (they live in .env).
+
+target:
+  name: my_rag_bot_k2
+  type: python                              # python | http | file
+  entrypoint: examples/my_rag_bot/rag_bot_k2.py
+  model: gemini/gemini-3.5-flash-lite       # the model the bot uses (for the report)
+
+models:
+  generator: gemini/gemini-3.1-flash-lite   # writes the test questions
+  judge: groq/openai/gpt-oss-120b           # scores answers (non-Gemini family)
+
+judge:
+  model: "groq/openai/gpt-oss-120b"         # keep identical to models.judge above
+  temperature: 0.0
+  max_tokens: 2000                          # reasoning model: thinking tokens count too
+  rubric_dir: "configs/rubrics"
+  budget_usd: 3.00
+
+budget:
+  max_usd: 5.0                              # hard cap for one audit
+  timeout_s: 180
+  max_concurrency: 4
+
+paths:
+  docs_dir: data/demo/docs
+  testset: data/demo/testset.jsonl
+  database: data/audit.db
+  llm_cache: data/llm_cache.db
+
+testset:
+  holdout_fraction: 0.3                     # kept aside, not used while fixing the bot
+  categories:                               # about 120 cases in total
+    direct_factual: 25
+    paraphrased_informal: 20
+    numeric_policy: 15
+    unanswerable: 15
+    multi_hop: 12
+    off_topic: 10
+    adversarial: 10
+    ambiguous: 8
+    multi_intent: 5

@@ -91,6 +91,122 @@ def _build_cell(metric, category, pairs):
     )
 
 
+# --- run-level stats (latency, errors, tokens, cost) -------------------------
+COLS = {
+    "latency": "latency_ms",
+    "error": "error",
+    "answer": "answer",
+    "in_tok": "input_tokens",
+    "out_tok": "output_tokens",
+    "cost": "cost_usd",          # optional; ignored if the column doesn't exist
+}
+
+# Price per 1M tokens in USD. Replace these two numbers with the real prices
+# from your provider's pricing page. The values below are EXAMPLES only.
+INPUT_PRICE = 0.10     # USD per 1M input tokens
+OUTPUT_PRICE = 0.40    # USD per 1M output tokens
+
+PRICES = {"gemini/gemini-3.5-flash-lite": (INPUT_PRICE, OUTPUT_PRICE)}   # USD per 1M tokens
+PRICE_MODEL = "gemini/gemini-3.5-flash-lite"
+
+
+def _percentile(values: list[float], p: float):
+    """Linear-interpolation percentile, p in 0..100. None if no values."""
+    if not values:
+        return None
+    s = sorted(values)
+    if len(s) == 1:
+        return float(s[0])
+    pos = (len(s) - 1) * p / 100
+    lo = int(pos)
+    hi = min(lo + 1, len(s) - 1)
+    return s[lo] + (s[hi] - s[lo]) * (pos - lo)
+
+
+def run_stats(db: sqlite3.Connection, run_id: str) -> dict:
+    existing = {r[1] for r in db.execute("PRAGMA table_info(results)")}
+    wanted = {k: v for k, v in COLS.items() if v in existing}
+    keys = list(wanted)
+    query = f"SELECT {', '.join(wanted[k] for k in keys)} FROM results WHERE run_id = ?"
+    rows = [dict(zip(keys, r)) for r in db.execute(query, (run_id,)).fetchall()]
+
+    n = len(rows)
+    failed = [r for r in rows
+              if r.get("error") or not (r.get("answer") or "").strip()]
+    ok = [r for r in rows if r not in failed]
+
+    latencies = [r["latency"] for r in ok if r.get("latency") is not None]
+    in_tok = sum(r.get("in_tok") or 0 for r in rows)
+    out_tok = sum(r.get("out_tok") or 0 for r in rows)
+
+    cost = None
+    if "cost" in wanted and any(r.get("cost") is not None for r in rows):
+        cost = sum(r.get("cost") or 0 for r in rows)
+    elif PRICE_MODEL in PRICES and (in_tok or out_tok):
+        pin, pout = PRICES[PRICE_MODEL]
+        cost = (in_tok * pin + out_tok * pout) / 1_000_000
+
+    return {
+        "n": n,
+        "n_ok": len(ok),
+        "errors": len(failed),
+        "error_ci": wilson(len(failed), n),
+        "p50": _percentile(latencies, 50),
+        "p95": _percentile(latencies, 95),
+        "in_tok": in_tok,
+        "out_tok": out_tok,
+        "cost": cost,
+        # an error is not an answer, so divide by successful answers
+        "cost_per_answer": (cost / len(ok)) if (cost is not None and ok) else None,
+    }
+
+
+def _fmt(v, kind):
+    if v is None:
+        return "n/a"
+    return {"ms": f"{v:.0f} ms", "int": f"{v:,}", "usd": f"${v:.4f}"}[kind]
+
+
+def _change(a, b, kind):
+    if a is None or b is None:
+        return ""
+    d = b - a
+    pct = f" ({d / a:+.0%})" if a else ""
+    return {"ms": f"{d:+.0f} ms", "int": f"{d:+,}", "usd": f"{d:+.4f}"}[kind] + pct
+
+
+def format_run_stats(stats: dict) -> str:
+    a, b = stats["a"], stats["b"]
+    rows = [
+        ("Cases", f"{a['n']}", f"{b['n']}", ""),
+        ("Errors / empty",
+         f"{a['errors']}/{a['n']} [{a['error_ci'][0]:.0%}-{a['error_ci'][1]:.0%}]",
+         f"{b['errors']}/{b['n']} [{b['error_ci'][0]:.0%}-{b['error_ci'][1]:.0%}]", ""),
+        ("Latency p50", _fmt(a["p50"], "ms"), _fmt(b["p50"], "ms"), _change(a["p50"], b["p50"], "ms")),
+        ("Latency p95", _fmt(a["p95"], "ms"), _fmt(b["p95"], "ms"), _change(a["p95"], b["p95"], "ms")),
+        ("Input tokens", _fmt(a["in_tok"], "int"), _fmt(b["in_tok"], "int"), _change(a["in_tok"], b["in_tok"], "int")),
+        ("Output tokens", _fmt(a["out_tok"], "int"), _fmt(b["out_tok"], "int"), _change(a["out_tok"], b["out_tok"], "int")),
+        ("Cost (run)", _fmt(a["cost"], "usd"), _fmt(b["cost"], "usd"), _change(a["cost"], b["cost"], "usd")),
+        ("Cost / answer", _fmt(a["cost_per_answer"], "usd"), _fmt(b["cost_per_answer"], "usd"),
+         _change(a["cost_per_answer"], b["cost_per_answer"], "usd")),
+    ]
+    lines = ["\nCost, latency and errors (A vs B)",
+             f"{'':<16}{'A':>22}  {'B':>22}  change", "-" * 80]
+    lines += [f"{lab:<16}{x:>22}  {y:>22}  {c}" for lab, x, y, c in rows]
+
+    notes = []
+    if min(a["n_ok"], b["n_ok"]) < 30:
+        notes.append(f"p95 is based on only {a['n_ok']} (A) and {b['n_ok']} (B) successful answers. "
+                     "Treat it as rough.")
+    if a["cost"] is None or b["cost"] is None:
+        notes.append("Cost is n/a: no cost column and no price set in PRICES.")
+    notes.append("Latency from cached or replayed answers is not real latency. "
+                 "Compare latency only between uncached runs.")
+    lines.append("\nNotes:")
+    lines += [f"  - {n}" for n in notes]
+    return "\n".join(lines)
+
+
 def compare_runs(db: sqlite3.Connection, run_a: str, run_b: str) -> dict:
     A = load_outcomes(db, run_a)
     B = load_outcomes(db, run_b)
@@ -125,6 +241,7 @@ def compare_runs(db: sqlite3.Connection, run_a: str, run_b: str) -> dict:
         "cells": cells,
         "errors": dict(errors),
         "unpaired": {"only_in_a": only_a, "only_in_b": only_b},
+        "stats": {"a": run_stats(db, run_a), "b": run_stats(db, run_b)},
     }
 
 
@@ -195,6 +312,9 @@ def format_table(result: dict) -> str:
     u = result["unpaired"]
     if u["only_in_a"] or u["only_in_b"]:
         lines.append(f"Warning: cases only in A: {u['only_in_a']}, only in B: {u['only_in_b']} (ignored)")
+
+    if "stats" in result:
+        lines.append(format_run_stats(result["stats"]))
 
     notes = caveat_notes(result)
     if notes:

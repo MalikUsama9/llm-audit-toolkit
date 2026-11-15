@@ -101,6 +101,19 @@ def failures(db_path, run_id):
         f"order by s.value asc, c.category", (run_id,))
 
 
+def correctness_breakdown(db_path, run_id):
+    """Counts of fully correct, partial and wrong correctness scores."""
+    r = query(
+        db_path,
+        "select count(*) as n, "
+        "sum(case when value >= ? then 1 else 0 end) as correct, "
+        "sum(case when value > 0 and value < ? then 1 else 0 end) as partial, "
+        "sum(case when value = 0 then 1 else 0 end) as wrong "
+        "from scores where run_id=? and metric='correctness'",
+        (CORRECT_MIN, CORRECT_MIN, run_id)).iloc[0]
+    return {k: int(r[k] or 0) for k in ("n", "correct", "partial", "wrong")}
+
+
 # ---------- cost and latency ----------
 def latency_summary(db_path, run_id):
     df = get_results(db_path, run_id)

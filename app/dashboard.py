@@ -1,7 +1,9 @@
 import sqlite3
+
 import pandas as pd
 import streamlit as st
 
+import data
 from audit.reporting.stats import wilson
 
 st.set_page_config(page_title="Chatbot Quality Audit", layout="wide")
@@ -22,28 +24,22 @@ def run_query(db_path, sql, params=()):
 # ---------- sidebar ----------
 st.sidebar.title("Chatbot Quality Audit")
 db_path = st.sidebar.text_input("Database path", DEFAULT_DB)
-show_unscored = st.sidebar.checkbox("Show unscored runs", value=False)
 
+show_unscored = st.sidebar.checkbox("Show unscored runs", value=False)
 try:
-    if show_unscored:
-        runs = run_query(db_path, "select run_id from runs order by rowid desc")
-    else:
-        runs = run_query(
-            db_path,
-            "select run_id from runs where run_id in "
-            "(select distinct run_id from scores) order by rowid desc")
+    run_list = data.list_runs(db_path, scored_only=not show_unscored)
 except Exception as e:
     st.sidebar.error(f"Cannot read database: {e}")
     st.stop()
 
-if runs.empty:
+if not run_list:
     if show_unscored:
         st.sidebar.warning("No runs in this database.")
     else:
         st.sidebar.warning("No scored runs yet. Tick 'Show unscored runs' to see all runs.")
     st.stop()
 
-run_id = st.sidebar.selectbox("Run", runs["run_id"].tolist())
+run_id = st.sidebar.selectbox("Run", run_list)
 page = st.sidebar.radio(
     "Page",
     ["Overview", "Categories", "Failure explorer",
@@ -51,24 +47,13 @@ page = st.sidebar.radio(
 )
 
 
-# ---------- pages (filled in during the next blocks) ----------
+# ---------- pages ----------
 def page_overview():
     st.header("Overview")
-    scores = run_query(
-        db_path,
-        "select case_id, metric, value from scores where run_id=?", (run_id,))
-    res = run_query(
-        db_path,
-        "select count(*) as n, "
-        "sum(case when error is not null and error != '' then 1 else 0 end) as errors "
-        "from results where run_id=?", (run_id,))
-
-    n_results = int(res["n"][0])
-    n_errors = int(res["errors"][0] or 0)
-
-    corr = scores[scores["metric"] == "correctness"]
-    n = len(corr)
-    k = int((corr["value"] >= 1.0).sum())   # change if your values differ
+    k, n = data.correctness_totals(db_path, run_id)
+    counts = data.result_counts(db_path, run_id)
+    n_results, n_errors = int(counts["n"]), int(counts["errors"] or 0)
+    summary = data.metric_summary(db_path, run_id)
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Cases answered", n_results)
@@ -88,8 +73,6 @@ def page_overview():
         st.caption("Fewer than 30 scored cases: treat this as indicative only.")
 
     st.subheader("All metrics in this run")
-    summary = (scores.groupby("metric")["value"]
-               .agg(cases="count", mean_value="mean").round(3).reset_index())
     st.dataframe(summary, use_container_width=True, hide_index=True)
 
 

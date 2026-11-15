@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import sqlite3
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -207,6 +208,34 @@ def format_run_stats(stats: dict) -> str:
     return "\n".join(lines)
 
 
+def config_diff(db: sqlite3.Connection, run_a: str, run_b: str) -> list[str]:
+    """List the settings that differ between the two runs' saved config snapshots."""
+    cols = [r[1] for r in db.execute("PRAGMA table_info(runs)")]
+    id_col = next((c for c in ("run_id", "id") if c in cols), None)
+    snap_col = next((c for c in cols if "snapshot" in c or "config" in c), None)
+    if id_col is None or snap_col is None:
+        return ["config snapshot not available (no id or snapshot column in runs)"]
+
+    def load(run_id: str) -> dict:
+        row = db.execute(
+            f"SELECT {snap_col} FROM runs WHERE {id_col} = ?", (run_id,)
+        ).fetchone()
+        if not row or not row[0]:
+            return {}
+        try:
+            data = json.loads(row[0])
+        except (TypeError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    a, b = load(run_a), load(run_b)
+    out = []
+    for k in sorted(set(a) | set(b)):
+        if a.get(k) != b.get(k):
+            out.append(f"{k}: {str(a.get(k))[:70]!r} -> {str(b.get(k))[:70]!r}")
+    return out or ["no config differences (same settings in both runs)"]
+
+
 def compare_runs(db: sqlite3.Connection, run_a: str, run_b: str) -> dict:
     A = load_outcomes(db, run_a)
     B = load_outcomes(db, run_b)
@@ -242,6 +271,7 @@ def compare_runs(db: sqlite3.Connection, run_a: str, run_b: str) -> dict:
         "errors": dict(errors),
         "unpaired": {"only_in_a": only_a, "only_in_b": only_b},
         "stats": {"a": run_stats(db, run_a), "b": run_stats(db, run_b)},
+        "config_diff": config_diff(db, run_a, run_b),
     }
 
 
@@ -288,6 +318,12 @@ def caveat_notes(result: dict) -> list[str]:
 
 def format_table(result: dict) -> str:
     lines = [f"Run A: {result['run_a']}   Run B: {result['run_b']}\n"]
+
+    if "config_diff" in result:
+        lines.append("Config differences (A -> B):")
+        lines += [f"  - {d}" for d in result["config_diff"]]
+        lines.append("")
+
     hdr = f"{'metric':<16}{'category':<14}{'n':>4}  {'A':>16}  {'B':>16}  {'delta (95% CI)':>24}  note"
     lines += [hdr, "-" * len(hdr)]
 

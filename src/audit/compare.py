@@ -8,6 +8,8 @@ from audit.reporting.stats import wilson, paired_flip_test, paired_bootstrap_del
 SMALL_N = 30          # below this, flag as "indicative only"
 VERY_SMALL_N = 15
 FEW_FLIPS = 10        # below this many changed cases, the flip test has low power
+OVERALL_N_WARN = 100  # below this, warn about small differences overall
+MIN_N_FOR_CI = 5      # below this, the bootstrap CI is not shown
 
 
 @dataclass
@@ -138,6 +140,35 @@ def flip_summary(cell: Cell) -> str:
             f"exact flip test p={cell.p_value:.3f} ({verdict}{caveat})")
 
 
+def caveat_notes(result: dict) -> list[str]:
+    """Plain-language warnings about how far the numbers can be trusted."""
+    notes = []
+    for c in result["cells"]:
+        if c.category != "ALL":
+            continue
+        half_width = (c.delta_ci[1] - c.delta_ci[0]) / 2
+        if c.n < OVERALL_N_WARN:
+            notes.append(
+                f"{c.metric}: n = {c.n} paired cases. Treat differences smaller than "
+                f"about {half_width:.0%} as noise (half-width of the 95% CI)."
+            )
+        if len(c.fixed) + len(c.broken) < FEW_FLIPS:
+            notes.append(
+                f"{c.metric}: only {len(c.fixed) + len(c.broken)} cases changed result, "
+                f"so the flip test has low power."
+            )
+
+    small = sorted({(c.category, c.n) for c in result["cells"]
+                    if c.category != "ALL" and c.n < SMALL_N})
+    if small:
+        listed = ", ".join(f"{cat} (n={n})" for cat, n in small)
+        notes.append(f"Indicative only (fewer than {SMALL_N} cases): {listed}.")
+
+    notes.append("Scores come from an automated judge. Check the calibration results "
+                 "before trusting small differences.")
+    return notes
+
+
 def format_table(result: dict) -> str:
     lines = [f"Run A: {result['run_a']}   Run B: {result['run_b']}\n"]
     hdr = f"{'metric':<16}{'category':<14}{'n':>4}  {'A':>16}  {'B':>16}  {'delta (95% CI)':>24}  note"
@@ -150,7 +181,10 @@ def format_table(result: dict) -> str:
     for c in result["cells"]:
         fa = f"{c.k_a}/{c.n} [{c.ci_a[0]:.0%}-{c.ci_a[1]:.0%}]"
         fb = f"{c.k_b}/{c.n} [{c.ci_b[0]:.0%}-{c.ci_b[1]:.0%}]"
-        fd = f"{c.delta:+.1%} [{c.delta_ci[0]:+.1%}, {c.delta_ci[1]:+.1%}]"
+        if c.n < MIN_N_FOR_CI:
+            fd = f"{c.delta:+.1%} [n/a]"
+        else:
+            fd = f"{c.delta:+.1%} [{c.delta_ci[0]:+.1%}, {c.delta_ci[1]:+.1%}]"
         note = c.caveat or ("significant" if c.significant else "within noise")
         lines.append(f"{c.metric:<16}{c.category:<14}{c.n:>4}  {fa:>16}  {fb:>16}  {fd:>24}  {note}")
         if c.fixed or c.broken:
@@ -161,4 +195,9 @@ def format_table(result: dict) -> str:
     u = result["unpaired"]
     if u["only_in_a"] or u["only_in_b"]:
         lines.append(f"Warning: cases only in A: {u['only_in_a']}, only in B: {u['only_in_b']} (ignored)")
+
+    notes = caveat_notes(result)
+    if notes:
+        lines.append("\nCaveats:")
+        lines += [f"  - {n}" for n in notes]
     return "\n".join(lines)

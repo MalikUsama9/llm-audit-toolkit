@@ -92,7 +92,7 @@ def page_overview():
     st.subheader("All metrics in this run")
     summary = data.metric_summary(db_path, run_id).rename(
         columns={"cases": "n (cases scored)", "mean_value": "mean score (0 to 1)"})
-    st.dataframe(summary, use_container_width=True, hide_index=True)
+    st.dataframe(summary, width="stretch", hide_index=True)
 
 
 def page_categories():
@@ -127,7 +127,7 @@ def page_categories():
         title="Fully correct answers by category (% of scored cases, 95% Wilson CI)",
         yaxis_title="% fully correct", xaxis_title="Category (n = cases scored)",
         yaxis_range=[0, 110])
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.caption("Error bars are 95% Wilson confidence intervals. "
                "Categories with fewer than 30 cases are indicative only.")
@@ -136,7 +136,7 @@ def page_categories():
         accuracy=[f"{a:.1%}" for a in t["acc"]],
         ci_95=[f"{l:.0%} to {h:.0%}" for l, h in zip(t["lo"], t["hi"])],
     )[["category", "n", "correct", "partial", "wrong", "accuracy", "ci_95", "note"]]
-    st.dataframe(show, use_container_width=True, hide_index=True)
+    st.dataframe(show, width="stretch", hide_index=True)
 
 
 def page_failures():

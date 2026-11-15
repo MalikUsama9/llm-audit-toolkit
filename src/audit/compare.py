@@ -321,3 +321,49 @@ def format_table(result: dict) -> str:
         lines.append("\nCaveats:")
         lines += [f"  - {n}" for n in notes]
     return "\n".join(lines)
+
+
+# --- flip details (question, answers and judge reasoning per flipped case) ---
+def flip_details(db: sqlite3.Connection, run_a: str, run_b: str,
+                 metric: str, case_ids: list[str]) -> list[dict]:
+    """For each case id: the question, reference answer, both runs' answers and
+    the judge's reasoning for `metric` in both runs."""
+    out = []
+    for cid in case_ids:
+        case = db.execute(
+            "SELECT question, reference_answer FROM cases WHERE id = ?", (cid,)
+        ).fetchone()
+        item = {
+            "case_id": cid,
+            "question": case[0] if case else None,
+            "reference": case[1] if case else None,
+        }
+        for tag, run in (("a", run_a), ("b", run_b)):
+            ans = db.execute(
+                "SELECT answer FROM results WHERE run_id = ? AND case_id = ?",
+                (run, cid),
+            ).fetchone()
+            why = db.execute(
+                "SELECT reasoning FROM scores WHERE run_id = ? AND case_id = ? AND metric = ?",
+                (run, cid, metric),
+            ).fetchone()
+            item[f"answer_{tag}"] = ans[0] if ans else None
+            item[f"judge_{tag}"] = why[0] if why else None
+        out.append(item)
+    return out
+
+
+def format_flip_details(title: str, details: list[dict]) -> str:
+    """Readable block for one list of flipped cases."""
+    lines = [f"\n=== {title}: {len(details)} case(s) ==="]
+    if not details:
+        lines.append("  (none)")
+    for d in details:
+        lines.append(f"\n--- {d['case_id']} ---")
+        lines.append(f"Q:     {d['question']}")
+        lines.append(f"REF:   {d['reference']}")
+        lines.append(f"A answer: {d['answer_a']}")
+        lines.append(f"A judge:  {d['judge_a']}")
+        lines.append(f"B answer: {d['answer_b']}")
+        lines.append(f"B judge:  {d['judge_b']}")
+    return "\n".join(lines)

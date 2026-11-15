@@ -4,6 +4,7 @@
     audit run --resume run_20261105_120000_ab12cd     # continue an earlier run
     audit check --run run_20261105_120000_ab12cd      # deterministic checks
     audit compare run_A run_B                         # what changed between two runs
+    audit compare run_A run_B --details               # also show Q, answers, judge reasoning
 
 `run` reads the config, builds the target, loads the test cases, calls run_audit(),
 prints progress while it works, and a summary (errors, p50/p95 latency) at the end.
@@ -14,6 +15,8 @@ judge. Empty and error answers are reported as their own row, never scored as wr
 
 `compare` puts two saved runs side by side: a table of metrics per category, and
 the cases that were FIXED (wrong -> right) and BROKEN (right -> wrong) overall.
+With --details it also prints the question, both answers and the judge's reasoning
+for each flipped case.
 """
 from __future__ import annotations
 
@@ -30,7 +33,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from audit.checks import run_checks
-from audit.compare import compare_runs, format_table
+from audit.compare import compare_runs, flip_details, format_flip_details, format_table
 from audit.config import AuditConfig, load_config
 from audit.models import TestCase
 from audit.runner import run_audit
@@ -243,18 +246,30 @@ def cmd_compare(args: argparse.Namespace) -> int:
             print(f"error: no run called '{run_id}' in {db_path}")
             return 1
 
+    # The connection stays open until everything is printed, because --details
+    # reads from the database again.
     db = sqlite3.connect(db_path)
     try:
         res = compare_runs(db, args.run_a, args.run_b)
+        print(format_table(res))
+
+        if args.list_flips:
+            for c in res["cells"]:
+                if c.category == "ALL":
+                    print(f"\n[{c.metric}] FIXED:  {c.fixed}")
+                    print(f"[{c.metric}] BROKEN: {c.broken}")
+
+        if args.details:
+            for c in res["cells"]:
+                if c.category == "ALL":
+                    print(format_flip_details(
+                        f"FIXED ({c.metric})",
+                        flip_details(db, args.run_a, args.run_b, c.metric, c.fixed)))
+                    print(format_flip_details(
+                        f"NEWLY BROKEN ({c.metric})",
+                        flip_details(db, args.run_a, args.run_b, c.metric, c.broken)))
     finally:
         db.close()
-
-    print(format_table(res))
-    if args.list_flips:
-        for c in res["cells"]:
-            if c.category == "ALL":
-                print(f"\n[{c.metric}] FIXED:  {c.fixed}")
-                print(f"[{c.metric}] BROKEN: {c.broken}")
     return 0
 
 
@@ -291,6 +306,8 @@ def build_parser() -> argparse.ArgumentParser:
                       help="database to read (default: paths.database in the YAML)")
     cmp_.add_argument("--list-flips", action=argparse.BooleanOptionalAction, default=True,
                       help="list the FIXED / BROKEN cases after the table (default: on)")
+    cmp_.add_argument("--details", action="store_true",
+                      help="also show question, answers and judge reasoning for flipped cases")
     cmp_.set_defaults(func=cmd_compare)
     return parser
 

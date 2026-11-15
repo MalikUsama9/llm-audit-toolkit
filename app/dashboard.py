@@ -1,6 +1,7 @@
 import sqlite3
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 import data
@@ -96,7 +97,46 @@ def page_overview():
 
 def page_categories():
     st.header("Category breakdown")
-    st.info("Coming in the category block.")
+    df = data.correctness_by_category(db_path, run_id)
+    if df.empty:
+        st.warning("No correctness scores for this run.")
+        return
+
+    rows = []
+    for _, r in df.iterrows():
+        n, k, partial = int(r["n"]), int(r["k"]), int(r["partial"])
+        lo, hi = wilson(k, n)
+        rows.append({
+            "category": r["category"], "n": n, "correct": k,
+            "partial": partial, "wrong": n - k - partial,
+            "acc": k / n, "lo": lo, "hi": hi,
+            "note": "indicative only" if n < 30 else "",
+        })
+    t = pd.DataFrame(rows)
+
+    fig = go.Figure(go.Bar(
+        x=[f"{c}<br>(n={n})" for c, n in zip(t["category"], t["n"])],
+        y=t["acc"] * 100,
+        error_y=dict(
+            type="data", symmetric=False,
+            array=(t["hi"] - t["acc"]) * 100,
+            arrayminus=(t["acc"] - t["lo"]) * 100),
+        text=[f"{a:.0%}" for a in t["acc"]], textposition="outside",
+    ))
+    fig.update_layout(
+        title="Fully correct answers by category (% of scored cases, 95% Wilson CI)",
+        yaxis_title="% fully correct", xaxis_title="Category (n = cases scored)",
+        yaxis_range=[0, 110])
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.caption("Error bars are 95% Wilson confidence intervals. "
+               "Categories with fewer than 30 cases are indicative only.")
+
+    show = t.assign(
+        accuracy=[f"{a:.1%}" for a in t["acc"]],
+        ci_95=[f"{l:.0%} to {h:.0%}" for l, h in zip(t["lo"], t["hi"])],
+    )[["category", "n", "correct", "partial", "wrong", "accuracy", "ci_95", "note"]]
+    st.dataframe(show, use_container_width=True, hide_index=True)
 
 
 def page_failures():

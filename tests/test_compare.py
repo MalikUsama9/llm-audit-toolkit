@@ -121,6 +121,14 @@ def test_same_run_has_zero_delta_and_no_flips():
         assert c.delta == 0 and c.fixed == [] and c.broken == []
 
 
+def test_result_is_the_same_every_time():
+    """Same two runs must give the same CIs and the same case order."""
+    first = compare_runs(make_db(), "A", "B")["cells"]
+    second = compare_runs(make_db(), "A", "B")["cells"]
+    assert [(c.category, c.delta_ci, c.fixed, c.broken) for c in first] == \
+           [(c.category, c.delta_ci, c.fixed, c.broken) for c in second]
+
+
 # ---------------------------------------------------------------- config diff
 def test_config_diff_reports_only_changes():
     diff = config_diff(make_db(), "A", "B")

@@ -246,7 +246,8 @@ def compare_runs(db: sqlite3.Connection, run_a: str, run_b: str) -> dict:
 
     grouped = defaultdict(list)       # (metric, category) -> [(case_id, a, b)]
     errors = defaultdict(lambda: {"a": 0, "b": 0})
-    for case_id, metric in shared:
+    # sorted() keeps the case order (and so the bootstrap CI) the same on every run
+    for case_id, metric in sorted(shared):
         cat, pa = A[(case_id, metric)]
         _, pb = B[(case_id, metric)]
         if pa is None or pb is None:
@@ -259,7 +260,7 @@ def compare_runs(db: sqlite3.Connection, run_a: str, run_b: str) -> dict:
     cells = []
     metrics = sorted({m for m, _ in grouped})
     for metric in metrics:
-        overall = [p for (m, _), ps in grouped.items() if m == metric for p in ps]
+        overall = [p for (m, _), ps in sorted(grouped.items()) if m == metric for p in ps]
         cells.append(_build_cell(metric, "ALL", overall))
         for (m, cat), ps in sorted(grouped.items()):
             if m == metric:

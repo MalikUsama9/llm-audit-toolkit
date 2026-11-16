@@ -114,6 +114,24 @@ def correctness_breakdown(db_path, run_id):
     return {k: int(r[k] or 0) for k in ("n", "correct", "partial", "wrong")}
 
 
+# ---------- run comparison ----------
+def compare_cases(db_path, run_a, run_b):
+    """Correctness of the same case in two runs (only cases scored in both).
+
+    Columns: case_id, category, question, value_a (baseline), value_b (new).
+    """
+    return query(
+        db_path,
+        f"select s1.case_id, c.category, c.question, "
+        f"s1.value as value_a, s2.value as value_b "
+        f"from scores s1 "
+        f"join scores s2 on s2.case_id = s1.case_id "
+        f"and s2.run_id = ? and s2.metric = 'correctness' "
+        f"join cases c on c.{CASE_ID} = s1.case_id "
+        f"where s1.run_id = ? and s1.metric = 'correctness' "
+        f"order by c.category, s1.case_id", (run_b, run_a))
+
+
 # ---------- cost and latency ----------
 def latency_summary(db_path, run_id):
     df = get_results(db_path, run_id)
@@ -127,3 +145,13 @@ def latency_summary(db_path, run_id):
         "input_tokens": int(ok["input_tokens"].sum()),
         "output_tokens": int(ok["output_tokens"].sum()),
     }
+
+
+def latency_by_case(db_path, run_id):
+    """One row per answered case: latency, tokens and bot error (slowest first)."""
+    return query(
+        db_path,
+        f"select r.case_id, c.category, r.latency_ms, "
+        f"r.input_tokens, r.output_tokens, r.error "
+        f"from results r left join cases c on c.{CASE_ID} = r.case_id "
+        f"where r.run_id=? order by r.latency_ms desc", (run_id,))

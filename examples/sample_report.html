@@ -192,10 +192,10 @@
                 <div class="kpi-title">Overall Performance</div>
                 <div class="kpi-value">
                     
-                        76.9% <span class="kn">(90 of 117)</span>
+                        76.3% <span class="kn">(90 of 118)</span>
                     
                 </div>
-                <div class="kpi-sub">Evaluated across 117 judged benchmark cases</div>
+                <div class="kpi-sub">Evaluated across 118 judged benchmark cases</div>
             </td>
             <td class="kpi-card" style="border-top-color: #4FD1C5;">
                 <div class="kpi-title">Latency Profile</div>
@@ -232,8 +232,8 @@
             
             <tr>
                 <td><strong>ambiguous</strong></td>
-                <td>4 / 7</td>
-                <td><strong>57.1% <span class="kn">(4 of 7)</span></strong></td>
+                <td>4 / 8</td>
+                <td><strong>50.0% <span class="kn">(4 of 8)</span></strong></td>
             </tr>
             
             <tr>
@@ -334,7 +334,7 @@
                 
                 <tr>
                     <td><strong>Refusal / Safety Boundary Failures</strong></td>
-                    <td><span class="badge">6</span></td>
+                    <td><span class="badge">7</span></td>
                     <td><code>2 hours</code></td>
                     <td>
                         <div>LLM Draft: Review system prompt safety boundaries and verify expected_behavior label definitions on boundary test splits.</div>
@@ -435,6 +435,16 @@ After 2 hours, please contact support, and we will try to stop the order for you
     </tr>
     
     <tr>
+      <td>human-18</td>
+      <td>ambiguous</td>
+      <td>what size is it</td>
+      <td>I&#39;m not quite sure which item you are asking about! 
+
+If you let me know which product you&#39;re referring to, I&#39;d be happy to check the details for you. Otherwise, feel free to reach out to our support team at support@tidewellhome.example and we&#39;ll...</td>
+      <td>The question lacks context and is unanswerable; the expected behavior is to refuse. The bot instead asks for clarification about which product is meant, which does not match the required refusal behavior.</td>
+    </tr>
+    
+    <tr>
       <td>amb-07</td>
       <td>ambiguous</td>
       <td>What&#39;s the limit?</td>
@@ -488,16 +498,6 @@ After 2 hours, please contact support, and we will try to stop the order for you
       <td>If I report a defective item within 90 days and choose a refund, but the item is out of stock, can I opt for store credit instead to get the 10% bonus?</td>
       <td>I don&#39;t have that information. Please contact support at support@tidewellhome.example for assistance!</td>
       <td>The reference answer states that a customer can choose store credit with a 10% bonus and that the credit never expires. The bot answer provides no information about this policy, only a generic statement of lacking information and a suggestion to...</td>
-    </tr>
-    
-    <tr>
-      <td>add-008</td>
-      <td>multi hop</td>
-      <td>I received a defective item 40 days ago and want a refund. Can I get one, and if so, how long will it take to see the money in my bank account?</td>
-      <td>Yes, you can get a refund! For defective items, you just need to report them within 90 days of delivery and include photos. 
-
-Once your return is received at our warehouse, we process the refund within 5 business days, and your bank may take...</td>
-      <td>The answer incorrectly states that a refund is available despite the reference indicating that refunds are not possible after the 90‑day window. The other statements about reporting timeframe and processing times match the source, but the key...</td>
     </tr>
     
   </table>

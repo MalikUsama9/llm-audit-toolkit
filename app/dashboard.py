@@ -10,7 +10,7 @@ from audit.compare import (
     MIN_N_FOR_CI, PRICE_MODEL, PRICES, caveat_notes, compare_runs,
     flip_details, flip_summary, format_table, run_stats,
 )
-from audit.reporting.stats import wilson
+from audit.reporting.summary import wilson
 
 st.set_page_config(page_title="Chatbot Quality Audit", layout="wide")
 

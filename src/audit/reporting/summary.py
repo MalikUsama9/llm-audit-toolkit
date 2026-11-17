@@ -3,9 +3,14 @@
 Usage (list runs):    python src/audit/reporting/summary.py data/audit.db
 Usage (one summary):  python src/audit/reporting/summary.py data/audit.db RUN_ID
 """
+from __future__ import annotations
+
 import json
+import math
+import random
 import sqlite3
 import sys
+from collections import defaultdict
 from math import sqrt
 
 # ---- settings you may edit ------------------------------------------------
@@ -99,6 +104,92 @@ def _calibration(db):
             "note": "Computed on all labeled cases; report agreement on a held-aside half if you tuned the rubric on these."}
 
 
+def generate_recommendations(errors: list[dict], judged: list[dict]) -> list[dict]:
+    """Group failing and errored audit cases by pattern and generate LLM-drafted fixes with expected effort."""
+    patterns: dict[str, list[dict]] = defaultdict(list)
+
+    # 1. Categorize execution / check errors
+    for err in errors:
+        error_msg = str(err.get("error") or err.get("check_status") or "empty answer").lower()
+        if "timeout" in error_msg or "timed out" in error_msg:
+            key = "Timeouts / Latency Limits"
+        elif "rate limit" in error_msg or "429" in error_msg:
+            key = "API Rate Limiting"
+        elif "json" in error_msg or "parse" in error_msg or "schema" in error_msg:
+            key = "JSON Parsing / Schema Mismatch"
+        elif "empty" in error_msg or not err.get("answer"):
+            key = "Empty / Missing Responses"
+        else:
+            key = "Other Execution Errors"
+        patterns[key].append(err)
+
+    # 2. Categorize judged failures (score < 1.0)
+    for item in judged:
+        if item.get("value", 1.0) >= 1.0:
+            continue
+        reason = str(item.get("reasoning") or "").lower()
+        metric = item.get("metric")
+
+        if metric == "refusal":
+            key = "Refusal / Safety Boundary Failures"
+        elif "json" in reason or "format" in reason or "schema" in reason:
+            key = "JSON Parsing / Schema Mismatch"
+        elif "hallucinat" in reason or "fabricat" in reason or "not mentioned" in reason:
+            key = "Hallucinations / Grounding Gaps"
+        else:
+            key = "Assertion / Correctness Failures"
+        patterns[key].append(item)
+
+    fix_mapping = {
+        "Timeouts / Latency Limits": {
+            "fix": "LLM Draft: Increase request timeout thresholds in client configuration or optimize prompt length to reduce token processing latency.",
+            "effort": "1 hour"
+        },
+        "API Rate Limiting": {
+            "fix": "LLM Draft: Implement exponential backoff retry logic or lower concurrency workers during batch execution runs.",
+            "effort": "2 hours"
+        },
+        "JSON Parsing / Schema Mismatch": {
+            "fix": "LLM Draft: Enforce structured output mode (e.g., Pydantic parsing / JSON mode) or refine prompt instructions against markdown wrapping.",
+            "effort": "2-3 hours"
+        },
+        "Empty / Missing Responses": {
+            "fix": "LLM Draft: Inspect finish_reason logs for content safety filters, max_token cutoffs, or upstream provider connection drops.",
+            "effort": "1 hour"
+        },
+        "Refusal / Safety Boundary Failures": {
+            "fix": "LLM Draft: Review system prompt safety boundaries and verify expected_behavior label definitions on boundary test splits.",
+            "effort": "2 hours"
+        },
+        "Hallucinations / Grounding Gaps": {
+            "fix": "LLM Draft: Strengthen retrieval context relevance or add explicit strict-faithfulness instructions to abstain when context is insufficient.",
+            "effort": "3-4 hours"
+        },
+        "Assertion / Correctness Failures": {
+            "fix": "LLM Draft: Review prompt instructions or refine evaluation rubric criteria to align with target benchmark constraints.",
+            "effort": "2 hours"
+        },
+        "Other Execution Errors": {
+            "fix": "LLM Draft: Inspect individual traceback logs and isolate anomalous environment exceptions.",
+            "effort": "1 hour"
+        },
+    }
+
+    recommendations = []
+    for category, items in sorted(patterns.items(), key=lambda kv: len(kv[1]), reverse=True):
+        mapped = fix_mapping.get(category, {"fix": "LLM Draft: Review failure logs manually.", "effort": "1 hour"})
+        recommendations.append({
+            "category": category,
+            "count": len(items),
+            "recommendation": mapped["fix"],
+            "expected_effort": mapped["effort"],
+            "status": "Draft - Needs Review Before Client Delivery",
+            "examples": [item.get("case_id") for item in items[:3]],
+        })
+
+    return recommendations
+
+
 def build_summary(db_path, run_id, top_n=10):
     db = sqlite3.connect(db_path)
 
@@ -150,6 +241,8 @@ def build_summary(db_path, run_id, top_n=10):
                  "reference": r["reference_answer"], "answer": (r["answer"] or "")[:600],
                  "reasoning": r["reasoning"]} for r in bad]
 
+    recommendations = generate_recommendations(errors, judged)
+
     hits = [s["retrieval_hit"]["value"] for s in sc.values() if "retrieval_hit" in s]
     mrr = [s["retrieval_mrr"]["value"] for s in sc.values() if "retrieval_mrr" in s]
     retrieval = None
@@ -188,6 +281,7 @@ def build_summary(db_path, run_id, top_n=10):
         "categories": {c: _block(v) for c, v in sorted(by_cat.items())},
         "splits": {c: _block(v) for c, v in sorted(by_split.items())},
         "failures": failures,
+        "recommendations": recommendations,
         "error_cases": [{"case_id": r["case_id"], "category": r["category"],
                          "error": r["error"] or r["check_status"] or "empty answer"}
                         for r in errors[:10]],

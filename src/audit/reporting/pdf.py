@@ -137,6 +137,14 @@ def _prepare(summary: dict, run_id) -> dict:
     return summary
 
 
+def _make_env():
+    return Environment(
+        loader=FileSystemLoader(str(TEMPLATE_DIR)),
+        autoescape=True,                 # bot answers can't break the layout
+        undefined=ChainableUndefined,    # a missing key renders empty instead of crashing
+    )
+
+
 def _warn_missing_variables(env, summary):
     """List every template variable that is not in the summary, all at once."""
     src = env.loader.get_source(env, TEMPLATE_NAME)[0]
@@ -148,19 +156,23 @@ def _warn_missing_variables(env, summary):
               "or add them in _prepare().")
 
 
-def build_report(db_path, run_id, out_path):
+def render_html(summary: dict, warn_missing: bool = True) -> str:
+    """Render an already-prepared summary dict to an HTML string."""
+    env = _make_env()
+    if warn_missing:
+        _warn_missing_variables(env, summary)
+    return env.get_template(TEMPLATE_NAME).render(**summary)
+
+
+def build_report(db_path, run_id, out_path, html_only: bool = False,
+                 debug: bool = False):
     raw = _call_builder(_find_summary_builder(), db_path, run_id)
     summary = _prepare(raw, run_id)
 
-    print("SUMMARY KEYS:", list(summary.keys()))   # temporary, to see what you have
+    if debug:
+        print("SUMMARY KEYS:", list(summary.keys()))
 
-    env = Environment(
-        loader=FileSystemLoader(str(TEMPLATE_DIR)),
-        autoescape=True,               # bot answers can't break the layout
-        undefined=ChainableUndefined,    # a missing key renders empty instead of crashing
-    )
-    _warn_missing_variables(env, summary)
-    html = env.get_template(TEMPLATE_NAME).render(**summary)
+    html = render_html(summary)
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -169,8 +181,11 @@ def build_report(db_path, run_id, out_path):
     html_path = out_path.with_suffix(".html")
     html_path.write_text(html, encoding="utf-8")
 
+    if html_only:  # skip the PDF entirely, handy for checking layout in a browser
+        return str(html_path)
+
     try:
-        from weasyprint import HTML
+        from weasyprint import HTML  # lazy import: CLI works without its system libs
         HTML(string=html, base_url=str(TEMPLATE_DIR)).write_pdf(str(out_path))
     except Exception as e:
         print(f"PDF generation failed: {e!r}")

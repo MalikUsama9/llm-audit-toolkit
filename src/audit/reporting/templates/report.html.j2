@@ -53,11 +53,13 @@
             border-radius: 6px;
             margin-top: 8px;
         }
-        .meta-bar code {
+        .meta-bar code,
+        table.data-table code {
             font-family: Consolas, monospace;
             background: #E2E8F0;
             padding: 2px 4px;
             border-radius: 3px;
+            font-size: 8.5pt;
         }
 
         /* Section Headings */
@@ -132,6 +134,7 @@
             padding: 8px 10px;
             border-bottom: 1px solid #E2E8F0;
             color: #4A5568;
+            vertical-align: top;
         }
         table.data-table tr:nth-child(even) td {
             background: #F9FAFB;
@@ -175,9 +178,9 @@
     <div class="header-container">
         <h1>LLM Audit Report</h1>
         <div class="meta-bar">
-            <strong>Target:</strong> {{ meta.target_name }} &nbsp;|&nbsp; 
-            <strong>Run ID:</strong> <code>{{ meta.run_id }}</code> &nbsp;|&nbsp; 
-            <strong>Judge:</strong> {{ meta.judge_model }}
+            <strong>Target:</strong> {{ run.target }} &nbsp;|&nbsp; 
+            <strong>Run ID:</strong> <code>{{ run.run_id }}</code> &nbsp;|&nbsp; 
+            <strong>Judge:</strong> {{ run.judge_model }}
         </div>
     </div>
 
@@ -189,26 +192,26 @@
                 <div class="kpi-title">Overall Performance</div>
                 <div class="kpi-value">
                     {% if overall and overall.n %}
-                        {{ pct(overall.k, overall.n) }}
+                        {{ pct(overall.passed, overall.n) }}
                     {% else %}
                         -
                     {% endif %}
                 </div>
-                <div class="kpi-sub">Evaluated across total benchmark items</div>
+                <div class="kpi-sub">Evaluated across {{ counts.judged | default(0) }} judged benchmark cases</div>
             </td>
             <td class="kpi-card" style="border-top-color: #4FD1C5;">
-                <div class="kpi-title">Cost & Latency Profile</div>
-                <div class="kpi-value" style="font-size: 14pt; padding-top: 4px;">
-                    {{ cost.total_cost | default('N/A') }}
+                <div class="kpi-title">Latency Profile</div>
+                <div class="kpi-value" style="font-size: 16pt; padding-top: 4px;">
+                    p50: {{ latency.p50_ms | default('N/A') }} ms
                 </div>
-                <div class="kpi-sub">Avg Latency: {{ latency.avg_latency | default('N/A') }}s</div>
+                <div class="kpi-sub">p95 Latency: {{ latency.p95_ms | default('N/A') }} ms</div>
             </td>
         </tr>
     </table>
 
     <!-- Methodology -->
     <h2>Methodology</h2>
-    <p>This automated evaluation audited <strong>{{ meta.target_name }}</strong> using the execution configuration <code>{{ meta.run_id }}</code> against standard benchmark test distributions to quantify accuracy, instruction-following stability, and failure vectors.</p>
+    <p>This automated evaluation audited <strong>{{ run.target }}</strong> using execution configuration <code>{{ run.run_id }}</code> against standard benchmark test distributions to quantify accuracy, instruction-following stability, and failure vectors.</p>
 
     <!-- Scores by Category -->
     <h2>Scores by Category</h2>
@@ -235,50 +238,57 @@
     <p class="muted">No category breakdown available for this execution run.</p>
     {% endif %}
 
-    <!-- Top Failure Patterns -->
-    <h2>Top Failure Patterns & Examples</h2>
-    {% if failures %}
-    <ul>
-        {% for f in failures %}
-        <li><strong>{{ f.category | default('General') }}:</strong> {{ f.text | default(f.reason | default('Failure registered')) }}</li>
-        {% endfor %}
-    </ul>
-    {% else %}
-    <p class="muted">No explicit failures or regressions recorded in this evaluation window.</p>
-    {% endif %}
-
-    <!-- Prioritized Fixes -->
-    <h2>Prioritized Fixes & Recommendations</h2>
-    {% if fixes %}
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th style="width: 15%;">Priority</th>
-                <th style="width: 30%;">Category</th>
-                <th style="width: 55%;">Recommended Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for fix in fixes %}
-            <tr>
-                <td><span class="badge {{ 'badge-draft' if fix.draft else '' }}">P{{ fix.priority }}</span></td>
-                <td><strong>{{ fix.category }}</strong></td>
-                <td>{{ fix.text }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p class="muted">No automated fixes required or generated.</p>
-    {% endif %}
-
-    <!-- Cost and Latency -->
-    <h2>Cost and Resource Latency</h2>
-    <p>Detailed performance analytics indicate model generation parameters mapped under generator model configuration <code>{{ meta.generator_model }}</code>.</p>
+    <!-- Recommended Fixes -->
+    <section class="recommendations">
+        <h2>Recommended Fixes & Draft Action Plan</h2>
+        <p class="muted">The following AI-drafted recommendations and estimated efforts require engineer review prior to external client delivery.</p>
+        {% if recommendations %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 26%;">Failure Category</th>
+                    <th style="width: 8%;">Cases</th>
+                    <th style="width: 16%;">Expected Effort</th>
+                    <th style="width: 50%;">LLM-Drafted Fix & Review Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in recommendations %}
+                <tr>
+                    <td><strong>{{ rec.category }}</strong></td>
+                    <td><span class="badge">{{ rec.count }}</span></td>
+                    <td><code>{{ rec.expected_effort }}</code></td>
+                    <td>
+                        <div>{{ rec.recommendation }}</div>
+                        <div style="margin-top: 6px;">
+                            <span class="badge badge-draft">{{ rec.status }}</span>
+                        </div>
+                        {% if rec.examples %}
+                        <div class="kn" style="margin-top: 4px;">
+                            Sample IDs: {% for ex in rec.examples %}<code>{{ ex }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No failures detected. Great job!</p>
+        {% endif %}
+    </section>
 
     <!-- Limitations -->
     <h2>Limitations & Caveats</h2>
+    {% if limitations %}
+    <ul>
+        {% for limit in limitations %}
+        <li>{{ limit }}</li>
+        {% endfor %}
+    </ul>
+    {% else %}
     <p class="muted">Automated benchmark audits serve as a high-fidelity evaluation baseline. Human verification remains critical for domain-specific nuance, safety edge cases, and real-world deployment alignment.</p>
+    {% endif %}
 
 </body>
 </html>

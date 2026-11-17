@@ -4,7 +4,19 @@ import sqlite3
 from dataclasses import dataclass, field
 from collections import defaultdict
 
-from audit.reporting.stats import wilson, paired_flip_test, paired_bootstrap_delta
+# wilson / paired_flip_test / paired_bootstrap_delta live in the reporting package.
+# Try both module names so this works whichever file you put them in.
+try:
+    from audit.reporting.stats import wilson, paired_flip_test, paired_bootstrap_delta
+except ImportError:
+    try:
+        from audit.reporting.summary import wilson, paired_flip_test, paired_bootstrap_delta
+    except ImportError as e:
+        raise ImportError(
+            "Could not import wilson, paired_flip_test and paired_bootstrap_delta from "
+            "audit.reporting.stats or audit.reporting.summary. Check that one of these "
+            "files exists in src/audit/reporting/ and defines all three functions."
+        ) from e
 
 SMALL_N = 30          # below this, flag as "indicative only"
 VERY_SMALL_N = 15
@@ -132,9 +144,11 @@ def run_stats(db: sqlite3.Connection, run_id: str) -> dict:
     rows = [dict(zip(keys, r)) for r in db.execute(query, (run_id,)).fetchall()]
 
     n = len(rows)
-    failed = [r for r in rows
-              if r.get("error") or not (r.get("answer") or "").strip()]
-    ok = [r for r in rows if r not in failed]
+    # Mark each row once (faster than comparing whole dicts)
+    is_failed = [bool(r.get("error")) or not (r.get("answer") or "").strip()
+                 for r in rows]
+    failed = [r for r, f in zip(rows, is_failed) if f]
+    ok = [r for r, f in zip(rows, is_failed) if not f]
 
     latencies = [r["latency"] for r in ok if r.get("latency") is not None]
     in_tok = sum(r.get("in_tok") or 0 for r in rows)

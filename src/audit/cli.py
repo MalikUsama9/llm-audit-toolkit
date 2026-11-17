@@ -1,10 +1,13 @@
-"""Command line: `audit run`, `audit check` and `audit compare`.
+"""Command line: `audit run`, `audit check`, `audit compare` and `audit report`.
 
     audit run --target configs/audit.yaml --testset data/demo/testset.jsonl --limit 5
     audit run --resume run_20261105_120000_ab12cd     # continue an earlier run
     audit check --run run_20261105_120000_ab12cd      # deterministic checks
     audit compare run_A run_B                         # what changed between two runs
     audit compare run_A run_B --details               # also show Q, answers, judge reasoning
+    audit report                                      # PDF for the latest run
+    audit report --run run_20261105_120000_ab12cd --out reports/client.pdf
+    audit report --html-only                          # HTML only, for layout debugging
 
 `run` reads the config, builds the target, loads the test cases, calls run_audit(),
 prints progress while it works, and a summary (errors, p50/p95 latency) at the end.
@@ -17,6 +20,9 @@ judge. Empty and error answers are reported as their own row, never scored as wr
 the cases that were FIXED (wrong -> right) and BROKEN (right -> wrong) overall.
 With --details it also prints the question, both answers and the judge's reasoning
 for each flipped case.
+
+`report` builds the PDF audit report for one run (the latest run by default).
+With --html-only it writes only the HTML, which you can open in a browser.
 """
 from __future__ import annotations
 
@@ -96,6 +102,21 @@ def build_target(cfg: AuditConfig) -> Target:
             raise ValueError("target.type is 'file' but target.answers_file is missing")
         return FileTarget.from_csv(t.answers_file, name=t.name)
     raise ValueError(f"unknown target type: {t.type}")
+
+
+def _latest_run_id(db_path: str | Path) -> str | None:
+    """Id of the most recently created run, or None if there are no runs.
+
+    Adjust the table and column names here if your schema differs.
+    """
+    db = sqlite3.connect(str(db_path))
+    try:
+        row = db.execute("SELECT run_id FROM runs ORDER BY rowid DESC LIMIT 1").fetchone()
+    except sqlite3.Error:
+        return None
+    finally:
+        db.close()
+    return row[0] if row else None
 
 
 async def _show_progress(store: Store, run_id: str, total: int, every_s: float = 2.0) -> None:
@@ -273,6 +294,55 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------- audit report
+def cmd_report(args: argparse.Namespace) -> int:
+    """Build the PDF (or HTML) audit report for one run. Defaults to the latest run."""
+    cfg = load_config(args.target)
+    db_path = Path(args.db or cfg.paths.database)
+
+    if not db_path.exists():
+        print(f"error: database not found: {db_path}")
+        return 1
+
+    store = Store(db_path)
+    run_id = args.run or _latest_run_id(db_path)
+    if run_id is None:
+        print(f"error: no runs found in {db_path}. Run `audit run` first.")
+        return 1
+    if store.get_run(run_id) is None:
+        print(f"error: no run called '{run_id}' in {db_path}")
+        return 1
+
+    out_path = Path(args.out) if args.out else Path("reports") / f"audit_report_{run_id}.pdf"
+
+    # Imported here so run / check / compare work without Jinja2 or WeasyPrint.
+    try:
+        from audit.reporting.pdf import build_report
+    except ImportError as e:
+        print(f"error: the report module could not be imported: {e}\n"
+              "Install the report dependencies (jinja2, weasyprint) and try again.")
+        return 1
+
+    print(f"Building report for run {run_id} ...")
+    try:
+        written = Path(build_report(db_path, run_id, out_path,
+                                    html_only=args.html_only, debug=args.debug))
+    except (ImportError, TypeError) as e:
+        # Raised when the summary function from the stats module cannot be found or called.
+        print(f"error: {e}")
+        return 1
+
+    if args.html_only:
+        print(f"HTML report written to {written}")
+        return 0
+    if written.suffix.lower() != ".pdf":
+        print(f"PDF could not be created. HTML report written to {written} instead.\n"
+              "Open it in a browser and use Print -> Save as PDF, or retry with --html-only.")
+        return 2
+    print(f"Report written to {written}")
+    return 0
+
+
 # ---------------------------------------------------------------- parser
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="audit", description="LLM audit toolkit")
@@ -309,6 +379,21 @@ def build_parser() -> argparse.ArgumentParser:
     cmp_.add_argument("--details", action="store_true",
                       help="also show question, answers and judge reasoning for flipped cases")
     cmp_.set_defaults(func=cmd_compare)
+
+    rep = sub.add_parser("report", help="build the PDF audit report for one run")
+    rep.add_argument("--run", "-r", metavar="RUN_ID", default=None,
+                     help="run to report on (default: the latest run)")
+    rep.add_argument("--out", "-o", metavar="PATH", default=None,
+                     help="output PDF path (default: reports/audit_report_<run_id>.pdf)")
+    rep.add_argument("--target", default="configs/audit.yaml",
+                     help="path to the audit YAML (default: configs/audit.yaml)")
+    rep.add_argument("--db", default=None, metavar="PATH",
+                     help="database to read (default: paths.database in the YAML)")
+    rep.add_argument("--html-only", action="store_true",
+                     help="write only the HTML, no PDF (for layout debugging)")
+    rep.add_argument("--debug", action="store_true",
+                     help="print the summary keys while building")
+    rep.set_defaults(func=cmd_report)
     return parser
 
 

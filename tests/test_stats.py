@@ -1,5 +1,5 @@
 ﻿import pytest
-from audit.reporting.stats import (
+from audit.reporting.summary import (
     wilson, paired_flip_test, paired_bootstrap_delta,
     flip_counts, percentile, p50, p95,
 )

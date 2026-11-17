@@ -16,13 +16,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+report = ["jinja2", "weasyprint"]
+dev = ["pytest", "ruff", "jinja2", "weasyprint"]
 
 [project.scripts]
 audit = "audit.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"audit.reporting" = ["templates/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

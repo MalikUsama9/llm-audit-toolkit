@@ -180,7 +180,7 @@
         <div class="meta-bar">
             <strong>Target:</strong> my_rag_bot &nbsp;|&nbsp; 
             <strong>Run ID:</strong> <code>run_20261117_110249_a29a22</code> &nbsp;|&nbsp; 
-            <strong>Judge:</strong> None
+            <strong>Judge:</strong> groq/openai/gpt-oss-120b
         </div>
     </div>
 
@@ -192,10 +192,10 @@
                 <div class="kpi-title">Overall Performance</div>
                 <div class="kpi-value">
                     
-                        -
+                        76.9% <span class="kn">(90 of 117)</span>
                     
                 </div>
-                <div class="kpi-sub">Evaluated across 0 judged benchmark cases</div>
+                <div class="kpi-sub">Evaluated across 117 judged benchmark cases</div>
             </td>
             <td class="kpi-card" style="border-top-color: #4FD1C5;">
                 <div class="kpi-title">Latency Profile</div>
@@ -214,7 +214,72 @@
     <!-- Scores by Category -->
     <h2>Scores by Category</h2>
     
-    <p class="muted">No category breakdown available for this execution run.</p>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 45%;">Category</th>
+                <th style="width: 30%;">Passed / Total</th>
+                <th style="width: 25%;">Success Rate</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+            <tr>
+                <td><strong>adversarial</strong></td>
+                <td>10 / 10</td>
+                <td><strong>100.0% <span class="kn">(10 of 10)</span></strong></td>
+            </tr>
+            
+            <tr>
+                <td><strong>ambiguous</strong></td>
+                <td>4 / 7</td>
+                <td><strong>57.1% <span class="kn">(4 of 7)</span></strong></td>
+            </tr>
+            
+            <tr>
+                <td><strong>direct_factual</strong></td>
+                <td>17 / 25</td>
+                <td><strong>68.0% <span class="kn">(17 of 25)</span></strong></td>
+            </tr>
+            
+            <tr>
+                <td><strong>multi_hop</strong></td>
+                <td>5 / 10</td>
+                <td><strong>50.0% <span class="kn">(5 of 10)</span></strong></td>
+            </tr>
+            
+            <tr>
+                <td><strong>multi_intent</strong></td>
+                <td>4 / 5</td>
+                <td><strong>80.0% <span class="kn">(4 of 5)</span></strong></td>
+            </tr>
+            
+            <tr>
+                <td><strong>numeric_policy</strong></td>
+                <td>14 / 15</td>
+                <td><strong>93.3% <span class="kn">(14 of 15)</span></strong></td>
+            </tr>
+            
+            <tr>
+                <td><strong>off_topic</strong></td>
+                <td>10 / 10</td>
+                <td><strong>100.0% <span class="kn">(10 of 10)</span></strong></td>
+            </tr>
+            
+            <tr>
+                <td><strong>paraphrased</strong></td>
+                <td>14 / 20</td>
+                <td><strong>70.0% <span class="kn">(14 of 20)</span></strong></td>
+            </tr>
+            
+            <tr>
+                <td><strong>unanswerable</strong></td>
+                <td>12 / 15</td>
+                <td><strong>80.0% <span class="kn">(12 of 15)</span></strong></td>
+            </tr>
+            
+        </tbody>
+    </table>
     
 
     <!-- Recommended Fixes -->
@@ -222,10 +287,261 @@
         <h2>Recommended Fixes & Draft Action Plan</h2>
         <p class="muted">The following AI-drafted recommendations and estimated efforts require engineer review prior to external client delivery.</p>
         
-        <p class="muted">No failures detected. Great job!</p>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 26%;">Failure Category</th>
+                    <th style="width: 8%;">Cases</th>
+                    <th style="width: 16%;">Expected Effort</th>
+                    <th style="width: 50%;">LLM-Drafted Fix & Review Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+                <tr>
+                    <td><strong>JSON Parsing / Schema Mismatch</strong></td>
+                    <td><span class="badge">10</span></td>
+                    <td><code>2-3 hours</code></td>
+                    <td>
+                        <div>LLM Draft: Enforce structured output mode (e.g., Pydantic parsing / JSON mode) or refine prompt instructions against markdown wrapping.</div>
+                        <div style="margin-top: 6px;">
+                            <span class="badge badge-draft">Draft - Needs Review Before Client Delivery</span>
+                        </div>
+                        
+                        <div class="kn" style="margin-top: 4px;">
+                            Sample IDs: <code>human-01</code>, <code>gen-001</code>, <code>gen-037</code>
+                        </div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><strong>Assertion / Correctness Failures</strong></td>
+                    <td><span class="badge">10</span></td>
+                    <td><code>2 hours</code></td>
+                    <td>
+                        <div>LLM Draft: Review prompt instructions or refine evaluation rubric criteria to align with target benchmark constraints.</div>
+                        <div style="margin-top: 6px;">
+                            <span class="badge badge-draft">Draft - Needs Review Before Client Delivery</span>
+                        </div>
+                        
+                        <div class="kn" style="margin-top: 4px;">
+                            Sample IDs: <code>human-03</code>, <code>human-02</code>, <code>human-06</code>
+                        </div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><strong>Refusal / Safety Boundary Failures</strong></td>
+                    <td><span class="badge">6</span></td>
+                    <td><code>2 hours</code></td>
+                    <td>
+                        <div>LLM Draft: Review system prompt safety boundaries and verify expected_behavior label definitions on boundary test splits.</div>
+                        <div style="margin-top: 6px;">
+                            <span class="badge badge-draft">Draft - Needs Review Before Client Delivery</span>
+                        </div>
+                        
+                        <div class="kn" style="margin-top: 4px;">
+                            Sample IDs: <code>human-17</code>, <code>human-16</code>, <code>human-20</code>
+                        </div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><strong>Hallucinations / Grounding Gaps</strong></td>
+                    <td><span class="badge">1</span></td>
+                    <td><code>3-4 hours</code></td>
+                    <td>
+                        <div>LLM Draft: Strengthen retrieval context relevance or add explicit strict-faithfulness instructions to abstain when context is insufficient.</div>
+                        <div style="margin-top: 6px;">
+                            <span class="badge badge-draft">Draft - Needs Review Before Client Delivery</span>
+                        </div>
+                        
+                        <div class="kn" style="margin-top: 4px;">
+                            Sample IDs: <code>gen-073</code>
+                        </div>
+                        
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
         
     </section>
 
+<section class="does-well">
+  <h2>What the Bot Does Well</h2>
+  
+  <ul>
+  
+    
+    <li><strong>Adversarial</strong>:
+        100.0% <span class="kn">(10 of 10)</span>
+        (95% CI 72% to 100%)
+        <em>- small sample, indicative only</em></li>
+  
+    
+    <li><strong>Multi Intent</strong>:
+        80.0% <span class="kn">(4 of 5)</span>
+        (95% CI 38% to 96%)
+        <em>- small sample, indicative only</em></li>
+  
+    
+    <li><strong>Numeric Policy</strong>:
+        93.3% <span class="kn">(14 of 15)</span>
+        (95% CI 70% to 99%)
+        <em>- small sample, indicative only</em></li>
+  
+    
+    <li><strong>Off Topic</strong>:
+        100.0% <span class="kn">(10 of 10)</span>
+        (95% CI 72% to 100%)
+        <em>- small sample, indicative only</em></li>
+  
+    
+    <li><strong>Unanswerable</strong>:
+        80.0% <span class="kn">(12 of 15)</span>
+        (95% CI 55% to 93%)
+        <em>- small sample, indicative only</em></li>
+  
+  </ul>
+  
+</section>
+
+<section class="failure-patterns">
+  <h2>Top Failure Patterns</h2>
+  
+  <table>
+    <tr><th>Case</th><th>Category</th><th>Question</th><th>Bot answer</th><th>Judge reasoning</th></tr>
+    
+    <tr>
+      <td>human-17</td>
+      <td>ambiguous</td>
+      <td>can i cancel it</td>
+      <td>Yes, you can cancel an order yourself using the &#34;Cancel Order&#34; button in your account within 2 hours of placing it. 
+
+After 2 hours, please contact support, and we will try to stop the order for you (though we cannot promise it). Once an order...</td>
+      <td>The question has no reference answer or source excerpt, making it unanswerable. The bot provided specific cancellation policy details that are not supported by any provided source, thus inventing information.</td>
+    </tr>
+    
+    <tr>
+      <td>human-16</td>
+      <td>ambiguous</td>
+      <td>does it come with a warranty</td>
+      <td>Yes, every Tidewell Home product comes with a 1-year limited warranty against manufacturing defects starting on the delivery date. Additionally, the Tidewell Enameled Dutch Oven has a 10-year warranty on its enamel!</td>
+      <td>There is no source excerpt provided, so the question is unanswerable. The bot supplied specific warranty details that are not supported by any source, constituting fabrication.</td>
+    </tr>
+    
+    <tr>
+      <td>amb-07</td>
+      <td>ambiguous</td>
+      <td>What&#39;s the limit?</td>
+      <td>Hi there! You can buy up to 10 units of the same item in one order. For larger quantities, please contact support!</td>
+      <td>There is no source excerpt provided, so the bot&#39;s statement about a purchase limit is not supported by any documentation. The question is unanswerable, and the correct response would be a refusal. The bot instead provided a specific limit, which...</td>
+    </tr>
+    
+    <tr>
+      <td>gen-001</td>
+      <td>direct factual</td>
+      <td>Can I come pick up my order at your store?</td>
+      <td>I&#39;m sorry, I don&#39;t have that information. Please contact support at support@tidewellhome.example for assistance!</td>
+      <td>The reference answer states that in‑store pickup is not available because Tidewell Home is online‑only. The bot answer does not provide this fact; instead it claims lack of information, which contradicts the reference. While the email address...</td>
+    </tr>
+    
+    <tr>
+      <td>gen-105</td>
+      <td>direct factual</td>
+      <td>What should I do if I&#39;m having trouble checking out on your site?</td>
+      <td>If you are having trouble using our website, just let us know and we will help you place your order by phone or email!</td>
+      <td>The reference answer advises trying a different browser or a private window before contacting support. The bot answer instead suggests contacting the company for phone or email assistance, which is not mentioned in the source excerpt and omits...</td>
+    </tr>
+    
+    <tr>
+      <td>add-002</td>
+      <td>direct factual</td>
+      <td>How do I get my money back if I decide I don&#39;t want the Club membership anymore?</td>
+      <td>I&#39;m sorry, but I don&#39;t have that information. Please contact support at support@tidewellhome.example for assistance!</td>
+      <td>The reference answer states that a full refund is available if cancellation occurs within 30 days of joining or renewing and no Club benefits have been used. The bot answer provides no such policy information and instead claims lack of...</td>
+    </tr>
+    
+    <tr>
+      <td>add-001</td>
+      <td>direct factual</td>
+      <td>How long does standard shipping take to arrive?</td>
+      <td>I don&#39;t have that information. Please contact support at support@tidewellhome.example.</td>
+      <td>The reference answer states that standard shipping takes 5 to 7 business days. The bot answer provides no factual information about shipping times and instead says it lacks the information, which fails to convey the required material fact....</td>
+    </tr>
+    
+    <tr>
+      <td>gap-028</td>
+      <td>multi hop</td>
+      <td>If I notice an unauthorized order on my account, what should I do to secure my account and how long will my personal data remain in your system if I decide to delete my account afterward?</td>
+      <td>I don&#39;t have that information. Please contact support at support@tidewellhome.example.</td>
+      <td>The reference answer and source excerpt specify that the user should contact support immediately, change their password, and that account deletion requests are completed within 30 days with personal details removed except for tax‑required order...</td>
+    </tr>
+    
+    <tr>
+      <td>gap-041</td>
+      <td>multi hop</td>
+      <td>If I report a defective item within 90 days and choose a refund, but the item is out of stock, can I opt for store credit instead to get the 10% bonus?</td>
+      <td>I don&#39;t have that information. Please contact support at support@tidewellhome.example for assistance!</td>
+      <td>The reference answer states that a customer can choose store credit with a 10% bonus and that the credit never expires. The bot answer provides no information about this policy, only a generic statement of lacking information and a suggestion to...</td>
+    </tr>
+    
+    <tr>
+      <td>add-008</td>
+      <td>multi hop</td>
+      <td>I received a defective item 40 days ago and want a refund. Can I get one, and if so, how long will it take to see the money in my bank account?</td>
+      <td>Yes, you can get a refund! For defective items, you just need to report them within 90 days of delivery and include photos. 
+
+Once your return is received at our warehouse, we process the refund within 5 business days, and your bank may take...</td>
+      <td>The answer incorrectly states that a refund is available despite the reference indicating that refunds are not possible after the 90‑day window. The other statements about reporting timeframe and processing times match the source, but the key...</td>
+    </tr>
+    
+  </table>
+  
+</section>
+
+    <section class="calibration">
+  <h2>Judge Calibration</h2>
+  
+  <p>The automated judge was compared with human labels on 24 cases.
+     They agreed on 22 of 24
+     (91.7%,
+     95% CI 74.2% to
+     97.7%).
+     Cohen's kappa: 0.86.</p>
+  <table>
+    <tr><th>Human label / Judge label</th>
+      <th>correct</th><th>partially_correct</th><th>wrong</th></tr>
+    
+    <tr><th>correct</th>
+      <td>12</td><td>2</td><td>0</td></tr>
+    
+    <tr><th>partially_correct</th>
+      <td>0</td><td>5</td><td>0</td></tr>
+    
+    <tr><th>wrong</th>
+      <td>0</td><td>0</td><td>5</td></tr>
+    
+  </table>
+  <p><em>Computed on all labeled cases; report agreement on a held-aside half if you tuned the rubric on these.</em></p>
+  
+</section>
+
+<section class="cost">
+  <h2>Cost and Latency</h2>
+  <table>
+    <tr><th>Latency p50</th><td>31.033649807795882 ms</td></tr>
+    <tr><th>Latency p95</th><td>69.77317987475544 ms</td></tr>
+    <tr><th>Input tokens</th><td>44593</td></tr>
+    <tr><th>Output tokens</th><td>4264</td></tr>
+    <tr><th>Estimated cost</th><td>not available</td></tr>
+    <tr><th>Cost per answer</th><td>not available</td></tr>
+  </table>
+</section>
     <!-- Limitations -->
     <h2>Limitations & Caveats</h2>
     

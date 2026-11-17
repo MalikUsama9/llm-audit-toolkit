@@ -1,5 +1,5 @@
 ﻿import pytest
-from audit.stats import percentile, latency_stats
+from audit.reporting.stats import percentile, latency_stats
 
 def test_empty_returns_none():
     assert percentile([], 50) is None

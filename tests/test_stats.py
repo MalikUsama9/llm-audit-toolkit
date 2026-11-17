@@ -1,5 +1,5 @@
 ﻿import pytest
-from audit.reporting.summary import (
+from audit.reporting.stats import (
     wilson, paired_flip_test, paired_bootstrap_delta,
     flip_counts, percentile, p50, p95,
 )
@@ -82,5 +82,5 @@ def test_bootstrap_empty():
 def test_percentiles():
     assert p50([1, 2, 3, 4]) == pytest.approx(2.5)
     assert p95(list(range(1, 101))) == pytest.approx(95.05)
-    assert percentile([], 50) == 0.0
+    assert percentile([], 50) is None
     assert percentile([7], 95) == 7.0

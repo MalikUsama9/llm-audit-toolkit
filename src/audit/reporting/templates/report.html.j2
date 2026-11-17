@@ -278,6 +278,75 @@
         {% endif %}
     </section>
 
+<section class="does-well">
+  <h2>What the Bot Does Well</h2>
+  {% set ns = namespace(found=false) %}
+  <ul>
+  {% for name, c in categories.items() if c.n and c.rate is not none and c.rate >= 0.8 %}
+    {% set ns.found = true %}
+    <li><strong>{{ name | replace('_', ' ') | title }}</strong>:
+        {{ pct(c.passed, c.n) }}
+        (95% CI {{ "%.0f"|format(c.ci_low * 100) }}% to {{ "%.0f"|format(c.ci_high * 100) }}%)
+        {% if c.small_sample %}<em>- small sample, indicative only</em>{% endif %}</li>
+  {% endfor %}
+  </ul>
+  {% if not ns.found %}<p>No category reached 80% in this run.</p>{% endif %}
+</section>
+
+<section class="failure-patterns">
+  <h2>Top Failure Patterns</h2>
+  {% if failures %}
+  <table>
+    <tr><th>Case</th><th>Category</th><th>Question</th><th>Bot answer</th><th>Judge reasoning</th></tr>
+    {% for f in failures[:10] %}
+    <tr>
+      <td>{{ f.case_id }}</td>
+      <td>{{ f.category | replace('_', ' ') }}</td>
+      <td>{{ f.question }}</td>
+      <td>{{ (f.answer or '') | truncate(250) }}</td>
+      <td>{{ (f.reasoning or '') | truncate(250) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p>No failed cases in this run.</p>
+  {% endif %}
+</section>
+
+    <section class="calibration">
+  <h2>Judge Calibration</h2>
+  {% if calibration and calibration.n %}
+  <p>The automated judge was compared with human labels on {{ calibration.n }} cases.
+     They agreed on {{ calibration.agree }} of {{ calibration.n }}
+     ({{ "%.1f"|format(calibration.agreement * 100) }}%,
+     95% CI {{ "%.1f"|format(calibration.agreement_ci[0] * 100) }}% to
+     {{ "%.1f"|format(calibration.agreement_ci[1] * 100) }}%).
+     Cohen's kappa: {{ "%.2f"|format(calibration.kappa) }}.</p>
+  <table>
+    <tr><th>Human label / Judge label</th>
+      {% for l in calibration.labels %}<th>{{ l }}</th>{% endfor %}</tr>
+    {% for row in calibration.labels %}
+    <tr><th>{{ row }}</th>
+      {% for col in calibration.labels %}<td>{{ calibration.confusion[row][col] }}</td>{% endfor %}</tr>
+    {% endfor %}
+  </table>
+  <p><em>{{ calibration.note }}</em></p>
+  {% else %}
+  <p>No human-labeled cases were available, so judge accuracy is unverified.</p>
+  {% endif %}
+</section>
+
+<section class="cost">
+  <h2>Cost and Latency</h2>
+  <table>
+    <tr><th>Latency p50</th><td>{{ latency.p50_ms | default('N/A') }} ms</td></tr>
+    <tr><th>Latency p95</th><td>{{ latency.p95_ms | default('N/A') }} ms</td></tr>
+    <tr><th>Input tokens</th><td>{{ usage.input_tokens }}</td></tr>
+    <tr><th>Output tokens</th><td>{{ usage.output_tokens }}</td></tr>
+    <tr><th>Estimated cost</th><td>{{ usage.est_cost_usd if usage.est_cost_usd is not none else 'not available' }}</td></tr>
+    <tr><th>Cost per answer</th><td>{{ usage.est_cost_per_answer_usd if usage.est_cost_per_answer_usd is not none else 'not available' }}</td></tr>
+  </table>
+</section>
     <!-- Limitations -->
     <h2>Limitations & Caveats</h2>
     {% if limitations %}

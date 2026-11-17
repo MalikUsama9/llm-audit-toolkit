@@ -45,3 +45,6 @@ data/audit.db
 data/audit_before_source_fix.db
 data/clients/
 .env
+
+out/
+day8_info.txt

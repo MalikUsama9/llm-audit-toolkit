@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LLM Audit Report - run_20261113_031624_282931</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm 15mm 20mm 15mm;
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                font-size: 9pt;
+                color: #718096;
+            }
+            @bottom-left {
+                content: "LLM Audit Toolkit — Confidential";
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                font-size: 9pt;
+                color: #718096;
+            }
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #2D3748;
+            line-height: 1.6;
+            font-size: 10.5pt;
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+        }
+        
+        /* Header Banner */
+        .header-container {
+            border-bottom: 2px solid #3182CE;
+            padding-bottom: 12px;
+            margin-bottom: 24px;
+        }
+        h1 {
+            font-size: 24pt;
+            color: #1A202C;
+            margin: 0 0 6px 0;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .meta-bar {
+            font-size: 9.5pt;
+            color: #4A5568;
+            background: #EDF2F7;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+        .meta-bar code {
+            font-family: Consolas, monospace;
+            background: #E2E8F0;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        /* Section Headings */
+        h2 {
+            font-size: 14pt;
+            color: #2B6CB0;
+            border-bottom: 1px solid #E2E8F0;
+            padding-bottom: 6px;
+            margin-top: 28px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            page-break-after: avoid;
+        }
+        p {
+            margin: 0 0 12px 0;
+        }
+
+        /* KPI Grid layout */
+        .kpi-grid {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 12px 0;
+            margin-left: -12px;
+            margin-right: -12px;
+            margin-bottom: 16px;
+        }
+        .kpi-card {
+            background: #F7FAFC;
+            border: 1px solid #E2E8F0;
+            border-top: 3px solid #3182CE;
+            border-radius: 6px;
+            padding: 14px 16px;
+            vertical-align: top;
+            width: 50%;
+        }
+        .kpi-title {
+            font-size: 9pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #718096;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .kpi-value {
+            font-size: 20pt;
+            font-weight: 700;
+            color: #1A202C;
+            line-height: 1.2;
+        }
+        .kpi-sub {
+            font-size: 9pt;
+            color: #4A5568;
+            margin-top: 4px;
+        }
+
+        /* Data Tables */
+        table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+            font-size: 10pt;
+        }
+        table.data-table th {
+            background: #EDF2F7;
+            color: #2D3748;
+            font-weight: 600;
+            text-align: left;
+            padding: 8px 10px;
+            border-bottom: 2px solid #CBD5E0;
+        }
+        table.data-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #E2E8F0;
+            color: #4A5568;
+        }
+        table.data-table tr:nth-child(even) td {
+            background: #F9FAFB;
+        }
+
+        /* Badges & Highlights */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            font-size: 8.5pt;
+            font-weight: 600;
+            border-radius: 12px;
+            background: #E2E8F0;
+            color: #4A5568;
+        }
+        .badge-draft {
+            background: #FEFCBF;
+            color: #975A16;
+            border: 1px solid #F6E05E;
+        }
+        .muted {
+            color: #718096;
+            font-style: italic;
+        }
+        ul {
+            margin: 0 0 12px 0;
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    
+
+    <div class="header-container">
+        <h1>LLM Audit Report</h1>
+        <div class="meta-bar">
+            <strong>Target:</strong> my_rag_bot_k2 &nbsp;|&nbsp; 
+            <strong>Run ID:</strong> <code>run_20261113_031624_282931</code> &nbsp;|&nbsp; 
+            <strong>Judge:</strong> groq/openai/gpt-oss-120b
+        </div>
+    </div>
+
+    <!-- Executive Summary -->
+    <h2>Executive Summary</h2>
+    <table class="kpi-grid">
+        <tr>
+            <td class="kpi-card">
+                <div class="kpi-title">Overall Performance</div>
+                <div class="kpi-value">-</div>
+                <div class="kpi-sub">Passed <strong>0</strong> of <strong>0</strong> evaluated cases</div>
+            </td>
+            <td class="kpi-card" style="border-top-color: #4FD1C5;">
+                <div class="kpi-title">Cost & Latency Profile</div>
+                <div class="kpi-value" style="font-size: 14pt; padding-top: 4px;">
+                    N/A
+                </div>
+                <div class="kpi-sub">Avg Latency: N/As</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Methodology -->
+    <h2>Methodology</h2>
+    <p>This automated evaluation audited <strong>my_rag_bot_k2</strong> using the execution configuration <code>run_20261113_031624_282931</code> against standard benchmark test distributions to quantify accuracy, instruction-following stability, and failure vectors.</p>
+
+    <!-- Scores by Category -->
+    <h2>Scores by Category</h2>
+    
+    <p class="muted">No category breakdown available for this execution run.</p>
+    
+
+    <!-- Top Failure Patterns -->
+    <h2>Top Failure Patterns & Examples</h2>
+    
+    <p class="muted">No explicit failures or regressions recorded in this evaluation window.</p>
+    
+
+    <!-- Prioritized Fixes -->
+    <h2>Prioritized Fixes & Recommendations</h2>
+    
+    <p class="muted">No automated fixes required or generated.</p>
+    
+
+    <!-- Cost and Latency -->
+    <h2>Cost and Resource Latency</h2>
+    <p>Detailed performance analytics indicate model generation parameters mapped under generator model configuration <code>gemini/gemini-3.1-flash-lite</code>.</p>
+
+    <!-- Limitations -->
+    <h2>Limitations & Caveats</h2>
+    <p class="muted">Automated benchmark audits serve as a high-fidelity evaluation baseline. Human verification remains critical for domain-specific nuance, safety edge cases, and real-world deployment alignment.</p>
+
+</body>
+</html>

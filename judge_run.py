@@ -48,7 +48,7 @@ for r in results:
     try:
         check, jr = judge_with_checks(
             client, cfg.judge, rubrics[metric], r.case_id,
-            case.question, case.reference_answer or "", case.source_text or "",
+            f"[Expected behavior: {case.expected_behavior.value}] {case.question}", case.reference_answer or "", case.source_text or "",
             r.answer or "", bot_error=r.error,
         )
         fails = 0

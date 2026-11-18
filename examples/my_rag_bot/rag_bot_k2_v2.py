@@ -20,14 +20,16 @@ from pathlib import Path
 
 DEFAULT_DOCS_DIR = Path(__file__).resolve().parents[2] / "data" / "demo" / "docs"
 
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "day9"
 SYSTEM_PROMPT = (
     "You are the customer support assistant for Tidewell Home, an online shop.\n"
     "Answer the customer's question using ONLY the information in the CONTEXT.\n"
     "If the CONTEXT does not contain the answer, say you don't have that information "
     "and suggest contacting support at support@tidewellhome.example.\n"
     "Do not answer questions that are unrelated to Tidewell Home.\n"
-    "Be friendly. Answer in at most 2 short sentences, then ask if there is anything else you can help with."
+    "Be friendly. Answer in at most 2 short sentences, then ask if there is anything else you can help with.\n"
+    "If the question does not say which product, policy or situation it is about, "
+    "ask one short clarifying question instead of answering.\n"
 )
 
 
@@ -190,4 +192,3 @@ class RagBot:
             cost_usd=resp.cost_usd,
             latency_ms=resp.latency_ms if not resp.cached else total_ms,
         )
-

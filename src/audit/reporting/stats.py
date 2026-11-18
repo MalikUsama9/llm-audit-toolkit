@@ -1,5 +1,6 @@
 from __future__ import annotations
 import math
+import random
 
 
 def percentile(values: list[float], p: float) -> float | None:
@@ -55,10 +56,17 @@ def paired_flip_test(plus_or_a, minus_or_b):
     if isinstance(plus_or_a, list) and isinstance(minus_or_b, list):
         if not plus_or_a or not minus_or_b or len(plus_or_a) != len(minus_or_b):
             return 1.0
-        diffs = [x - y for x, y in zip(plus_or_a, minus_or_b)]
-        mean_diff = sum(diffs) / len(diffs)
-        extreme = sum(1 for d in diffs if abs(d) >= abs(mean_diff))
-        return float(extreme / len(diffs))
+        diffs = [x - y for x, y in zip(plus_or_a, minus_or_b) if x != y]
+        if not diffs:
+            return 1.0
+        observed = abs(sum(diffs))
+        rng = random.Random(0)
+        n_perm = 10000
+        hits = sum(
+            abs(sum(d if rng.random() < 0.5 else -d for d in diffs)) >= observed - 1e-12
+            for _ in range(n_perm)
+        )
+        return (hits + 1) / (n_perm + 1)      # sign-flip permutation p-value
     else:
         plus = int(plus_or_a)
         minus = int(minus_or_b)
@@ -78,10 +86,15 @@ def flip_counts(a: dict, b: dict) -> tuple[int, int]:
     return (plus, minus)
 
 
-def paired_bootstrap_delta(a: list, b: list, n_bootstraps: int = 1000) -> tuple[float, float]:
-    """Calculate bootstrap confidence interval for paired samples."""
-    if not a or not b:
+def paired_bootstrap_delta(a: list, b: list, n_bootstraps: int = 1000,
+                           seed: int = 0, alpha: float = 0.05) -> tuple[float, float]:
+    """95% bootstrap CI for the mean paired difference (b - a). Resamples case pairs."""
+    if not a or not b or len(a) != len(b):
         return (0.0, 0.0)
     diffs = [y - x for x, y in zip(a, b)]
-    mean_diff = sum(diffs) / len(diffs)
-    return (float(mean_diff), float(mean_diff))
+    n = len(diffs)
+    rng = random.Random(seed)            # fixed seed: same data gives the same interval
+    means = sorted(sum(rng.choices(diffs, k=n)) / n for _ in range(n_bootstraps))
+    lo = means[int((alpha / 2) * n_bootstraps)]
+    hi = means[min(n_bootstraps - 1, int((1 - alpha / 2) * n_bootstraps))]
+    return (float(lo), float(hi))

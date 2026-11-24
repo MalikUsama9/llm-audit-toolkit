@@ -1,6 +1,6 @@
 # Auditing and improving a RAG support bot: a before/after case study
 
-*Draft. This is my own bot, built on a fictional online store, not a client system. [CONFIRM STORE NAME: the roadmap says BrewNest, but the runs and docs say Tidewell Home.]*
+*Draft. This is my own bot, built on a fictional online store, not a client system.*
 
 ## The finding
 
@@ -101,6 +101,7 @@ No refusal/clarification cases got worse.
 - **Larger top_k may add unsupported detail.** gen-096 and gen-068 added extra claims after retrieval went from 4 to 8 chunks. This is a hypothesis; I did not test top_k separately.
 - **Persistent failures.** gen-001, gen-105 and gap-041 fail in both runs. The bot says it lacks information (or answers wrongly) although the documents contain the answer, so more chunks did not fix the underlying retrieval or grounding problem.
 - **Some "fixes" are shorter answers.** gen-022, gen-073 and gen-089 moved from partial to correct mainly because the bot stopped adding extra sentences the judge penalises. Part of the gain reflects judge strictness, not new information.
+- **A test-set error I did not fix.** Case add-008 (held-out) says the defect arrived 40 days ago, but its reference answer says the report was after the 90-day window and that no refund is available. The source documents say a defect reported within 90 days of delivery can be refunded, so the reference contradicts them. The after-run answer ("Yes, you can get a refund") matches the documents but was scored wrong. I did not change the test set or re-judge, because changing a held-out case after seeing results would undermine the comparison. Counting this case as correct would change a run's held-out pass count by at most 1 of 37.
 
 ## 6. What I would do for a client
 

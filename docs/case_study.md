@@ -8,8 +8,8 @@ Two changes to my bot (a one-line prompt rule for ambiguous questions, and retri
 
 ## 1. Setup
 
-- **Bot:** a retrieval-augmented support assistant for a fictional online shop (Tidewell Home). BM25 retriever, max chunk size 1,200 characters, temperature 0.0, max_tokens 1500.
-- **Generator:** [VERIFY: config lists model gemini/gemini-3.5-flash-lite but models.generator gemini/gemini-3.1-flash-lite].
+- **Bot:** a retrieval-augmented support assistant for a fictional online shop (Tidewell Home). BM25 retriever, max chunk size 1,200 characters, temperature 0.0, max_tokens 1500 (`target.model` in config: `gemini/gemini-3.5-flash-lite`).
+- **Generator:** `gemini/gemini-3.1-flash-lite` (`models.generator` in config; `judge.model` is `groq/openai/gpt-oss-120b`).
 - **Judge:** groq/openai/gpt-oss-120b, same rubric and settings for both runs.
 - **Test set:** 118 cases, split into 81 development and 37 held-out. The split was fixed before any change. Categories: adversarial 10, ambiguous 8, direct_factual 25, multi_hop 10, multi_intent 5, numeric_policy 15, off_topic 10, paraphrased 20, unanswerable 15.
 - **Scoring:** 75 cases are scored on correctness and 43 on refusal/clarification behaviour. A case counts as passed only if fully correct (partial answers do not count as passed).
@@ -91,7 +91,7 @@ No refusal/clarification cases got worse.
 **Cost and latency:**
 
 - Input tokens 44,593 to 77,238 (+73%); output tokens 4,264 to 3,356 (−21%).
-- Cost per run $0.0062 to $0.0091 (+47%); cost per answer about $0.0001 in both. [VERIFY pricing source.]
+- Cost per run $0.0062 to $0.0091 (+47%); cost per answer about $0.0001 in both (calculated from recorded run token usage and configured model rates).
 - Latency is not comparable. The baseline p50/p95 (31 ms / 70 ms) looks like cached or replayed answers; the after run was 1,732 ms / 69,676 ms. I make no claim about speed.
 
 ## 5. What didn't work

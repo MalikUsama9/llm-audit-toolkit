@@ -1,8 +1,13 @@
 import json
 import sqlite3
 
+import pytest
+
 from audit.compare import (
     _build_cell, _percentile, caveat_notes, compare_runs, config_diff, run_stats,
+)
+from audit.reporting.stats import (
+    flip_counts, paired_bootstrap_delta, paired_flip_test,
 )
 
 
@@ -133,3 +138,80 @@ def test_result_is_the_same_every_time():
 def test_config_diff_reports_only_changes():
     diff = config_diff(make_db(), "A", "B")
     assert len(diff) == 1 and "prompt_version" in diff[0]
+
+
+# ================================================================
+# Day 10 step 4: bootstrap + flip test, adapted to this repo's API
+#   paired_bootstrap_delta(before, after) -> (low, high)
+#   paired_flip_test(fixed, broken)       -> p-value
+#   flip_counts(a_by_id, b_by_id)         -> (fixed, broken)
+# ================================================================
+BEFORE = [0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0]
+AFTER = [1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0]   # improves 3 cases, regresses none
+
+
+def _counts(before, after):
+    """Turn two 0/1 lists into (fixed, broken) via the real flip_counts."""
+    a = {f"c{i}": bool(v) for i, v in enumerate(before)}
+    b = {f"c{i}": bool(v) for i, v in enumerate(after)}
+    return flip_counts(a, b)
+
+
+# ---------- paired bootstrap ----------
+def test_cell_observed_delta_and_interval_contain_it():
+    pairs = [(f"c{i}", x, y) for i, (x, y) in enumerate(zip(BEFORE, AFTER))]
+    cell = _build_cell("correctness", "ALL", pairs)
+    assert cell.delta == pytest.approx(sum(AFTER) / 12 - sum(BEFORE) / 12)   # 0.25
+    lo, hi = cell.delta_ci
+    assert lo <= cell.delta <= hi
+
+
+def test_bootstrap_interval_not_zero_width():
+    lo, hi = paired_bootstrap_delta(BEFORE, AFTER)
+    assert hi > lo                          # the roadmap's key requirement
+
+
+def test_bootstrap_reproducible():
+    assert paired_bootstrap_delta(BEFORE, AFTER) == paired_bootstrap_delta(BEFORE, AFTER)
+
+
+def test_bootstrap_identical_runs_contain_zero():
+    lo, hi = paired_bootstrap_delta(BEFORE, BEFORE)
+    assert lo <= 0 <= hi                    # zero-width is legit here
+
+
+def test_bootstrap_is_actually_paired():
+    # Opposite per-item changes cancel: the mean delta is 0, so the CI must straddle 0.
+    a = [1, 0, 1, 0, 1, 0]
+    b = [0, 1, 0, 1, 0, 1]
+    lo, hi = paired_bootstrap_delta(a, b)
+    assert lo < 0 < hi
+    assert _counts(a, b) == (3, 3)
+
+
+# ---------- flip test ----------
+def test_flip_all_improved_known_p():
+    # 5 pairs, all fixed, none broken: exact two-sided p = 2 / 2**5 = 0.0625
+    fixed, broken = _counts([0] * 5, [1] * 5)
+    assert (fixed, broken) == (5, 0)
+    assert paired_flip_test(fixed, broken) == pytest.approx(0.0625)
+
+
+def test_flip_no_difference_gives_p_one():
+    fixed, broken = _counts(BEFORE, BEFORE)
+    assert (fixed, broken) == (0, 0)
+    assert paired_flip_test(fixed, broken) == pytest.approx(1.0)
+
+
+def test_flip_symmetric():
+    fwd = paired_flip_test(*_counts(BEFORE, AFTER))     # (3, 0)
+    back = paired_flip_test(*_counts(AFTER, BEFORE))    # (0, 3)
+    assert fwd == pytest.approx(back)
+
+
+def test_flip_noisy_example_not_significant():
+    before = [1, 0, 1, 0, 1, 0, 1, 0]
+    after = [1, 1, 1, 0, 0, 0, 1, 0]        # one fixed, one broken: net 0
+    fixed, broken = _counts(before, after)
+    assert (fixed, broken) == (1, 1)
+    assert paired_flip_test(fixed, broken) > 0.5

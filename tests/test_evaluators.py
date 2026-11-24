@@ -1,7 +1,10 @@
 import json
 from types import SimpleNamespace
 
-from src.audit.judge import judge_case, judge_with_checks
+import pytest
+
+from src.audit.judge import judge_with_checks
+from src.audit.reporting.summary import value_to_label
 
 CFG = SimpleNamespace(model="test-model", temperature=0.0, max_tokens=800)
 RUBRIC = {
@@ -40,6 +43,7 @@ def test_correct_answer():
     assert check.status == "ok"
     assert res.output.verdict == "supported"
     assert res.hallucinated is False
+    assert c.calls == 1
 
 
 def test_wrong_answer():
@@ -56,12 +60,12 @@ def test_refusal_is_flagged_and_not_a_hallucination():
     assert res.hallucinated is False
 
 
-# ---- deliberately broken answers
-def test_empty_answer_skips_judge():
-    for bad in ("", "   ", None):
-        c = FakeClient([])
-        check, res = run(c, bad)
-        assert check.status == "empty" and res is None and c.calls == 0
+# ---- deliberately broken answers (deterministic checks, judge never called)
+@pytest.mark.parametrize("bad", ["", "   ", None])
+def test_empty_answer_skips_judge(bad):
+    c = FakeClient([])
+    check, res = run(c, bad)
+    assert check.status == "empty" and res is None and c.calls == 0
 
 
 def test_bot_error_skips_judge():
@@ -76,7 +80,7 @@ def test_error_text_skips_judge():
     assert check.status == "error" and res is None and c.calls == 0
 
 
-# ---- broken judge output
+# ---- broken judge output (judge parsing)
 def test_garbage_judge_output_returns_none_after_one_retry():
     c = FakeClient(["not json", "still not json"])
     _, res = run(c, "Paris [1].")
@@ -86,14 +90,14 @@ def test_garbage_judge_output_returns_none_after_one_retry():
 def test_invalid_verdict_label_rejected():
     c = FakeClient([reply("maybe", "supported"), reply("maybe", "supported")])
     _, res = run(c, "Paris [1].")
-    assert res is None
+    assert res is None and c.calls == 2
 
 
 def test_missing_keys_rejected():
     bad = json.dumps({"verdict": "supported"})
     c = FakeClient([bad, bad])
     _, res = run(c, "Paris [1].")
-    assert res is None
+    assert res is None and c.calls == 2
 
 
 def test_fenced_json_is_accepted():
@@ -106,3 +110,17 @@ def test_one_bad_reply_then_good_reply_recovers():
     c = FakeClient(["oops", reply("supported", "supported")])
     _, res = run(c, "Paris [1].")
     assert res is not None and c.calls == 2
+
+
+# ---- value_to_label (every branch + boundaries)
+@pytest.mark.parametrize("value, expected", [
+    (1.0, "correct"),              # exact upper boundary (>= 1.0)
+    (1.5, "correct"),              # above 1.0 is still correct
+    (0.999, "partially_correct"),  # just below the upper boundary
+    (0.5, "partially_correct"),    # middle branch
+    (0.01, "partially_correct"),   # just above zero
+    (0.0, "wrong"),                # exact lower boundary (> 0 is false)
+    (-0.5, "wrong"),               # below zero
+])
+def test_value_to_label(value, expected):
+    assert value_to_label(value) == expected

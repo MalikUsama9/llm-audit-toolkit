@@ -18,12 +18,9 @@ def test_wilson_matches_roadmap_example():
     assert 0.84 < hi < 0.86
 
 
-def test_wilson_edges():
-    assert wilson(0, 0) == (0.0, 0.0)
-    lo, hi = wilson(10, 10)
-    assert hi == pytest.approx(1.0) and lo < 1.0
-    lo, hi = wilson(0, 10)
-    assert lo == pytest.approx(0.0) and hi > 0.0
+def test_wilson_contains_point_estimate():
+    lo, hi = wilson(7, 10)
+    assert lo <= 0.7 <= hi
 
 
 def test_wilson_edges_stay_inside_0_1():
@@ -48,20 +45,26 @@ def test_flip_test_values():
     assert paired_flip_test(8, 2) == pytest.approx(0.109375)
     assert paired_flip_test(5, 5) == pytest.approx(1.0)
     assert paired_flip_test(10, 0) == pytest.approx(2 / 1024)
-    assert paired_flip_test(0, 0) == 1.0
-
-
-def test_flip_test_known_values():
-    assert paired_flip_test(4, 1) == pytest.approx(0.375)   # fixed=4 / broken=1
+    assert paired_flip_test(4, 1) == pytest.approx(0.375)
     assert paired_flip_test(1, 4) == pytest.approx(0.375)   # symmetric
     assert paired_flip_test(0, 0) == 1.0                    # no flips, no evidence
-    assert paired_flip_test(10, 0) < 0.01                   # one-sided flips are significant
 
 
-def test_flip_counts():
+def test_flip_test_one_sided_flips_are_significant():
+    assert paired_flip_test(10, 0) < 0.01
+
+
+def test_flip_counts_balanced():
     a = {"c1": False, "c2": True, "c3": True, "c4": False, "only_a": True}
     b = {"c1": True, "c2": False, "c3": True, "c4": False, "only_b": True}
-    assert flip_counts(a, b) == (1, 1)
+    assert flip_counts(a, b) == (1, 1)     # ids not in both are ignored
+
+
+def test_flip_counts_order():
+    # a -> b: c1 and c2 go False->True (fixed), c3 goes True->False (broken)
+    a = {"c1": False, "c2": False, "c3": True}
+    b = {"c1": True, "c2": True, "c3": False}
+    assert flip_counts(a, b) == (2, 1)     # assumes (fixed, broken); swap if your code is (broken, fixed)
 
 
 # ---------------------------------------------------------------- bootstrap

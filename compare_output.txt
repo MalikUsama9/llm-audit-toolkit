@@ -1,0 +1,208 @@
+﻿Run A: run_20261117_110249_a29a22   Run B: run_20261118_021953_c80e1b
+
+Config differences (A -> B):
+  - prompt_version: 'v1' -> 'day9'
+  - system_prompt: 'You are the customer support assistant for Tidewell Home, an online sh' -> 'You are the customer support assistant for Tidewell Home, an online sh'
+  - top_k: '4' -> '8'
+
+metric          category         n                 A                 B            delta (95% CI)  note
+------------------------------------------------------------------------------------------------------
+correctness     ALL             75   52/75 [58%-79%]   55/75 [62%-82%]     +4.0% [-4.0%, +13.3%]  within noise
+                fixed=7 broken=4 of 75 paired cases; exact flip test p=0.549 (not significant)
+correctness     direct_factual  25   17/25 [48%-83%]   20/25 [61%-91%]    +12.0% [-4.0%, +28.0%]  n=25: indicative only
+                fixed=4 broken=1 of 25 paired cases; exact flip test p=0.375 (not significant; few flips, low power)
+correctness     multi_hop       10    5/10 [24%-76%]    7/10 [40%-89%]    +20.0% [+0.0%, +50.0%]  n=10: too small for conclusions
+                fixed=2 broken=0 of 10 paired cases; exact flip test p=0.500 (not significant; few flips, low power)
+correctness     multi_intent     5     4/5 [38%-96%]     4/5 [38%-96%]      +0.0% [+0.0%, +0.0%]  n=5: too small for conclusions
+correctness     numeric_policy  15   13/15 [62%-96%]   12/15 [55%-93%]    -6.7% [-26.7%, +13.3%]  n=15: indicative only
+                fixed=1 broken=2 of 15 paired cases; exact flip test p=1.000 (not significant; few flips, low power)
+correctness     paraphrased     20   13/20 [43%-82%]   12/20 [39%-78%]     -5.0% [-15.0%, +0.0%]  n=20: indicative only
+                fixed=0 broken=1 of 20 paired cases; exact flip test p=1.000 (not significant; few flips, low power)
+refusal         ALL             43   36/43 [70%-92%]   40/43 [81%-98%]     +9.3% [+2.3%, +20.9%]  within noise
+                fixed=4 broken=0 of 43 paired cases; exact flip test p=0.125 (not significant; few flips, low power)
+refusal         adversarial     10  10/10 [72%-100%]  10/10 [72%-100%]      +0.0% [+0.0%, +0.0%]  n=10: too small for conclusions
+refusal         ambiguous        8     4/8 [22%-78%]    8/8 [68%-100%]   +50.0% [+12.5%, +87.5%]  n=8: too small for conclusions
+                fixed=4 broken=0 of 8 paired cases; exact flip test p=0.125 (not significant; few flips, low power)
+refusal         off_topic       10  10/10 [72%-100%]  10/10 [72%-100%]      +0.0% [+0.0%, +0.0%]  n=10: too small for conclusions
+refusal         unanswerable    15   12/15 [55%-93%]   12/15 [55%-93%]      +0.0% [+0.0%, +0.0%]  n=15: indicative only
+
+Cost, latency and errors (A vs B)
+                                     A                       B  change
+--------------------------------------------------------------------------------
+Cases                              118                     118  
+Errors / empty           0/118 [0%-3%]           0/118 [0%-3%]  
+Latency p50                      31 ms                 1732 ms  +1701 ms (+5481%)
+Latency p95                      70 ms                69676 ms  +69606 ms (+99760%)
+Input tokens                    44,593                  77,238  +32,645 (+73%)
+Output tokens                    4,264                   3,356  -908 (-21%)
+Cost (run)                     $0.0062                 $0.0091  +0.0029 (+47%)
+Cost / answer                  $0.0001                 $0.0001  +0.0000 (+47%)
+
+Notes:
+  - Latency from cached or replayed answers is not real latency. Compare latency only between uncached runs.
+
+Caveats:
+  - correctness: n = 75 paired cases. Treat differences smaller than about 9% as noise (half-width of the 95% CI).
+  - refusal: n = 43 paired cases. Treat differences smaller than about 9% as noise (half-width of the 95% CI).
+  - refusal: only 4 cases changed result, so the flip test has low power.
+  - Indicative only (fewer than 30 cases): adversarial (n=10), ambiguous (n=8), direct_factual (n=25), multi_hop (n=10), multi_intent (n=5), numeric_policy (n=15), off_topic (n=10), paraphrased (n=20), unanswerable (n=15).
+  - Scores come from an automated judge. Check the calibration results before trusting small differences.
+
+[correctness] FIXED:  ['add-002', 'gen-022', 'gen-037', 'gen-073', 'add-006', 'gap-028', 'gen-089']
+[correctness] BROKEN: ['gen-096', 'add-004', 'gen-068', 'human-04']
+
+[refusal] FIXED:  ['amb-04', 'amb-07', 'human-16', 'human-17']
+[refusal] BROKEN: []
+
+=== FIXED (correctness): 7 case(s) ===
+
+--- add-002 ---
+Q:     How do I get my money back if I decide I don't want the Club membership anymore?
+REF:   You can get a full refund if you cancel within 30 days of joining or renewing, provided you have not used any Club benefits.
+A answer: I'm sorry, but I don't have that information. Please contact support at support@tidewellhome.example for assistance!
+A judge:  The reference answer states that a full refund is available if cancellation occurs within 30 days of joining or renewing and no Club benefits have been used. The bot answer provides no such information and instead says it lacks the information, failing to convey any of the required material facts.
+B answer: Hi there! 
+
+You can cancel any time in your account. If you cancel within 30 days of joining or renewing and have not used any Club benefit, you will receive a full refund. After that, the fee is not refunded, but you keep the benefits until the end of the paid year.
+B judge:  All material facts from the reference answer are present in the bot answer and are directly supported by the source excerpt; no contradictions or omissions are found.
+
+--- gen-022 ---
+Q:     Can I pay for my order using cryptocurrency?
+REF:   No, we do not accept cryptocurrency as a payment method.
+A answer: No, we do not accept cryptocurrency. 
+
+If you have any other questions, please contact support at support@tidewellhome.example!
+A judge:  The answer correctly states that cryptocurrency is not accepted, matching the source. It adds an extra claim about a support email address that is not present in the source excerpt, so that claim is unsupported. The core factual answer is correct, but the presence of an unsupported material claim makes the overall answer only partially correct.
+B answer: No, we do not accept cryptocurrency.
+B judge:  The bot answer states that cryptocurrency is not accepted, which matches the reference answer and is directly supported by the source excerpt. No additional or contradictory material facts are present.
+
+--- gen-037 ---
+Q:     What perks do I get if I join the Tidewell Club?
+REF:   Members receive free standard shipping on all US orders with no minimum, 5% back in store credit on merchandise, and 24-hour early access to sales.
+A answer: Hello! As a Tidewell Club member, you get the following perks:
+
+* 5% store credit added to your account 31 days after your order is delivered (after the 30-day return window closes).
+* Early access to every named sale, starting 24 hours before the public at 12:00 AM PT.
+A judge:  The bot answer includes two correct material facts (the timing of the 5% store credit and the 24ΓÇæhour early access) but omits the free standard shipping benefit, which is a required part of the reference answer. It also adds an unsupported detail about the exact time (12:00 AM PT). Therefore the answer is missing a key perk and adds an unverified detail, making it only partially correct.
+B answer: Hello! If you join the Tidewell Club, you get the following benefits:
+
+- Free Standard shipping on all US orders (including Alaska and Hawaii) with no minimum order (the heavy-item surcharge still applies).
+- 5% back in store credit on merchandise (calculated on the item price only).
+- Early access to every named sale, 24 hours before the public.
+B judge:  All material facts from the reference answer are present in the bot answer and are supported by the source excerpt; no contradictions or omissions are found.
+
+--- gen-073 ---
+Q:     Can I put my Pinebrook knives in the dishwasher?
+REF:   No, washing Pinebrook knives in a dishwasher is considered misuse and is not covered by the warranty.
+A answer: No, you cannot put the Pinebrook knives in the dishwasher. They must be hand washed only, as a dishwasher can dull the edge and damage the handles.
+A judge:  The answer correctly states that Pinebrook knives should not be placed in a dishwasher, which aligns with the source stating that washing them in a dishwasher is misuse. However, it adds two additional material claimsΓÇörequiring hand washing only and that a dishwasher can dull edges and damage handlesΓÇöthat are not mentioned in the source excerpt. Since not all material statements are supported by the source, the answer is only partially correct.
+B answer: No, the Pinebrook knives must be hand washed only.
+B judge:  The bot states that Pinebrook knives must be hand washed only, which aligns with the source excerpt that washing them in a dishwasher is considered misuse and not covered by the warranty. No contradictory or missing material facts are present.
+
+--- add-006 ---
+Q:     I am a Tidewell Club member living in Alaska. If I order a heavy item, will I have to pay for shipping?
+REF:   Yes, you will have to pay the $19.95 heavy item surcharge. While Tidewell Club members receive free Standard shipping with no minimum, the FAQ states that this surcharge applies to heavy items and is not removed by free shipping offers.
+A answer: Hello! As a Tidewell Club member, you get free Standard shipping on all US orders (including Alaska and Hawaii) with no minimum order. However, please note that the heavy-item surcharge still applies. 
+
+If you have any other questions, feel free to ask!
+A judge:  All material facts presented by the bot are supported by the source excerpt: free Standard shipping for Tidewell Club members and the existence of a heavy-item surcharge. However, the bot omits the specific surcharge amount ($19.95) that is stated in the reference answer, which is a material detail. Therefore the answer is missing a key fact.
+B answer: Hi there! As a Tidewell Club member, you get free Standard shipping on all US orders with no minimum, even in Alaska! However, please note that the $19.95 heavy-item surcharge still applies to heavy items and is not waived by your membership.
+B judge:  All material facts from the reference answer are present in the bot answer and are directly supported by the source excerpt: members receive free Standard shipping with no minimum (including Alaska) and the $19.95 heavy-item surcharge still applies.
+
+--- gap-028 ---
+Q:     If I notice an unauthorized order on my account, what should I do to secure my account and how long will my personal data remain in your system if I decide to delete my account afterward?
+REF:   You should contact support immediately and change your password. If you subsequently delete your account, the company will finish the request within 30 days and remove personal details not required for tax purposes, though order records are kept for 7 years.
+A answer: I don't have that information. Please contact support at support@tidewellhome.example.
+A judge:  The reference answer and source excerpt specify that the user should contact support immediately and change their password, and that account deletion is completed within 30 days with personal data removed except for taxΓÇærequired order records kept 7 years. The bot answer provides none of these facts and instead gives an unsupported email address not found in the source. Therefore the answer does not address the question and lacks the required material facts.
+B answer: If you see an order you did not place, contact support right away and change your password. 
+
+If you decide to delete your account, we finish the request within 30 days and keep order records for 7 years for tax reasons, but we remove the personal details we are not required to keep.
+B judge:  All material facts from the reference answer are present in the bot answer and are directly supported by the source excerpt; no contradictions or omissions are found.
+
+--- gen-089 ---
+Q:     How long do I have to use a password reset link before it expires?
+REF:   A password reset link is valid for 30 minutes.
+A answer: A password reset link is valid for 30 minutes before it expires. If it expires, you can just request a new one! Let me know if you need anything else.
+A judge:  The answer includes the correct material fact that a password reset link is valid for 30 minutes, which matches the reference and source. However, it adds an extra claim about requesting a new link after expiration that is not present in the source excerpt, making the answer only partially correct.
+B answer: Hi there! A password reset link is valid for 30 minutes before it expires. Let me know if you need anything else!
+B judge:  The bot answer states the only material fact required: that a password reset link is valid for 30 minutes. This matches the reference answer and is directly supported by the source excerpt. No contradictory or missing material facts are present.
+
+=== NEWLY BROKEN (correctness): 4 case(s) ===
+
+--- gen-096 ---
+Q:     What currency are your prices listed in?
+REF:   All prices are in USD.
+A answer: All prices and charges are listed in US dollars! Let me know if you need help with anything else.
+A judge:  The bot includes the required material fact that all prices are in USD, which is supported by the source. The additional statement about charges being in USD is not mentioned in the source but is not contradicted. No reference fact is missing or contradicted, so the answer meets the correctness criteria.
+B answer: Hello! All prices and charges are listed in US dollars, including orders to Canada. Let me know if you need anything else!
+B judge:  The answer correctly states that prices are in USD, matching both the reference answer and the source excerpt. However, it adds an extra claim about prices applying to orders to Canada, which is not mentioned in the source excerpt, making the answer only partially correct.
+
+--- add-004 ---
+Q:     If I place an order at 4:00 PM on a Tuesday, when will it ship?
+REF:   Your order will ship on the next business day, which is Wednesday.
+A answer: Hello! Since your order was placed after 2:00 PM PT on a business day, it will ship on the next business day (which would be Wednesday). Let me know if you need anything else!
+A judge:  Both material facts in the reference answer are present in the bot answer and are directly supported by the source excerpt; no contradictions or omissions are found.
+B answer: Orders placed after 2:00 PM PT on a business day ship on the next business day!
+B judge:  The bot correctly states the policy that orders placed after 2:00ΓÇ»PM PT ship the next business day, which matches the source and covers the first part of the reference answer. However, it does not explicitly name the day (Wednesday) as the reference answer does, omitting a material detail required by the question.
+
+--- gen-068 ---
+Q:     How long does my warranty last, and when does that period begin?
+REF:   The warranty lasts for 1 year, starting on the delivery date.
+A answer: Your warranty lasts for 1 year, and the period begins on the delivery date!
+A judge:  Both material facts from the reference answer are present in the bot answer and are directly supported by the source excerpt; no contradictory or missing information is found.
+B answer: Every Tidewell Home product has a 1-year limited warranty against manufacturing defects, and the year starts on the delivery date. (Note: The enameled Dutch Oven has a longer, 10-year warranty on its enamel, and its other parts have the standard 1-year warranty.)
+B judge:  The answer correctly states the warranty length (1 year) and that it begins on the delivery date, matching both the reference answer and source excerpt. However, it adds an additional claim about a 10-year warranty for the enameled Dutch Oven that is not present in the provided source excerpt, making the answer only partially correct.
+
+--- human-04 ---
+Q:     got a code for first time buyers
+REF:   WELCOME10 gives new customers 10% off with a $30 minimum before tax, once per customer.
+A answer: Welcome to Tidewell Home! If you are a new customer, you can use the promo code **WELCOME10** to get 10% off your first order. 
+
+Just a few quick details about it:
+* It requires a merchandise subtotal of at least $30 before tax.
+* It cannot be used on gift cards or Final Sale items.
+* It can be used once per customer and can be combined with Tidewell Club benefits, but not with other promo codes.
+
+To use it, simply enter the code in the Promo Code box on the cart page and select Apply before you pay!
+A judge:  All material facts from the reference answer are present (10% off, $30 minimum, once per customer) and the additional details provided are supported by the source excerpt. No contradictions are found.
+B answer: Which product, policy or situation is your question about?
+B judge:  The bot answer does not provide any of the material facts from the reference answer (WELCOME10 gives 10% off with a $30 minimum, once per customer). It only asks for clarification, which is not a factual claim. Therefore the answer fails to address the question.
+
+=== FIXED (refusal): 4 case(s) ===
+
+--- amb-04 ---
+Q:     Can I put it in the oven?
+REF:   None
+A answer: I don't have that information. Please contact support at support@tidewellhome.example.
+A judge:  The question is ambiguous and the expected behavior is to ask a clarifying question about which item the user means. The bot instead gave a refusal and directed the user to support, which is a missed clarification.
+B answer: Could you please tell me which product you are asking about?
+B judge:  The expected behavior is to ask for clarification. The bot responded with a clarifying question, which matches the expected behavior and does not constitute a refusal or an incorrect answer.
+
+--- amb-07 ---
+Q:     What's the limit?
+REF:   None
+A answer: Hi there! You can buy up to 10 units of the same item in one order. For larger quantities, please contact support!
+A judge:  The expected behavior for the question is to ask a clarifying question about which limit the user is referring to. Instead, the bot provided a specific answer about a purchase limit, which does not satisfy the clarification requirement. Therefore, the bot missed the required clarification.
+B answer: Which product, policy, or situation are you asking about?
+B judge:  The expected behavior is to ask for clarification. The bot correctly asks which product, policy, or situation the user is referring to, providing no unsupported information. This is an appropriate handling of an ambiguous query.
+
+--- human-16 ---
+Q:     does it come with a warranty
+REF:   None
+A answer: Yes, every Tidewell Home product comes with a 1-year limited warranty against manufacturing defects starting on the delivery date. Additionally, the Tidewell Enameled Dutch Oven has a 10-year warranty on its enamel!
+A judge:  The question expects a clarification about which product the warranty applies to, but the bot provided specific warranty details without asking for clarification. These details are not present in any source excerpt, making them unsupported. The bot therefore missed the required clarification step.
+B answer: Could you please let me know which product you are asking about?
+B judge:  The expected behavior is to ask for clarification about which product the warranty question refers to. The bot responded with a clarifying question, which aligns with the expected behavior. No factual claims were made.
+
+--- human-17 ---
+Q:     can i cancel it
+REF:   None
+A answer: Yes, you can cancel an order yourself using the "Cancel Order" button in your account within 2 hours of placing it. 
+
+After 2 hours, please contact support, and we will try to stop the order for you (though we cannot promise it). Once an order has the status "Packed," it can no longer be canceled, but you can return it instead when it arrives.
+A judge:  The expected behavior for the question is to ask for clarification about which order the user wants to cancel. Instead, the bot provided a detailed answer about cancellation policies, inventing information not present in any source. This constitutes a missed clarification.
+B answer: Could you please tell me which product, policy, or situation you are asking about so I can help you with your cancellation?
+B judge:  The bot responded with a clarifying question, which matches the expected behavior of asking for more information. No factual claims were made.
+
+=== NEWLY BROKEN (refusal): 0 case(s) ===
+  (none)

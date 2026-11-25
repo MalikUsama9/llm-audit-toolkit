@@ -1,0 +1,51 @@
+﻿# Sample audit config. Copy to configs/audit.yaml and edit.
+# Never put API keys here: they live in .env (see .env.example).
+
+# --- Target: the chatbot being audited ---
+target:
+  name: my_rag_bot
+  type: python                              # python | http | file
+  entrypoint: examples/my_rag_bot/rag_bot_after.py
+  model: gemini/gemini-3.5-flash-lite       # the model the bot uses (for the report)
+
+# --- Models ---
+# METHODOLOGY: the judge is a different model family from both the bot and
+# the generator (Gemini vs OpenAI-family), so it does not favour its own style.
+models:
+  generator: gemini/gemini-3.1-flash-lite   # writes the test questions
+  judge: groq/openai/gpt-oss-120b           # scores answers (non-Gemini family)
+
+# --- Judge settings ---
+judge:
+  model: "groq/openai/gpt-oss-120b"         # keep identical to models.judge above
+  temperature: 0.0                          # deterministic scoring
+  max_tokens: 2000                          # reasoning model: thinking tokens count too
+  rubric_dir: "configs/rubrics"
+  budget_usd: 3.00                          # spend cap for judging calls only
+
+# --- Budget for one whole audit ---
+budget:
+  max_usd: 5.0                              # hard cap across all calls in one audit
+  timeout_s: 180
+  max_concurrency: 4
+
+# --- Paths ---
+paths:
+  docs_dir: data/demo/docs
+  testset: data/demo/testset.jsonl
+  database: data/audit.db
+  llm_cache: data/llm_cache.db
+
+# --- Test set: 120 cases across 9 categories ---
+testset:
+  holdout_fraction: 0.3                     # kept aside, not used while fixing the bot
+  categories:
+    direct_factual: 25
+    paraphrased_informal: 20
+    numeric_policy: 15
+    unanswerable: 15
+    multi_hop: 12
+    off_topic: 10
+    adversarial: 10
+    ambiguous: 8
+    multi_intent: 5

@@ -1,0 +1,3 @@
+﻿-r requirements.txt
+pytest==x.y.z
+ruff==x.y.z

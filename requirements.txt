@@ -1,0 +1,3 @@
+﻿litellm==x.y.z
+streamlit==x.y.z
+pandas==x.y.z

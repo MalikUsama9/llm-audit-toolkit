@@ -30,3 +30,6 @@ notes/
 *.bak
 out/
 
+
+# Generated reports
+reports/

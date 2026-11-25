@@ -1,7 +1,20 @@
 """Query helpers for the dashboard. All SQL lives here, so pages stay simple."""
 import sqlite3
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
+
+ROOT = Path(__file__).resolve().parents[1]  # app\ -> repo root
+
+
+def open_ro(db_path):
+    """Open the database read-only. Relative paths are resolved from the repo root."""
+    p = Path(db_path)
+    if not p.is_absolute():
+        p = ROOT / p
+    return sqlite3.connect(p.as_uri() + "?mode=ro", uri=True)
+
 
 CASE_ID = "id"            # change to "case_id" if your cases table uses that
 CORRECT_MIN = 1.0         # correctness value that counts as fully correct
@@ -9,7 +22,7 @@ CORRECT_MIN = 1.0         # correctness value that counts as fully correct
 
 @st.cache_data(ttl=60)
 def query(db_path, sql, params=()):
-    con = sqlite3.connect(db_path)
+    con = open_ro(db_path)
     try:
         return pd.read_sql_query(sql, con, params=params)
     finally:

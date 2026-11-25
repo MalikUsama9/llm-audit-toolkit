@@ -1,11 +1,12 @@
 import os
-import sqlite3
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
 import data
+from data import open_ro
 from audit.compare import (
     MIN_N_FOR_CI, PRICE_MODEL, PRICES, caveat_notes, compare_runs,
     flip_details, flip_summary, format_table, run_stats,
@@ -18,13 +19,14 @@ st.set_page_config(page_title="Chatbot Quality Audit", layout="wide")
 # To look at your own private database, set the AUDIT_DB environment variable
 # (for example  $env:AUDIT_DB = "data/audit.db"  in PowerShell) or type the
 # path into the "Database path" box in the sidebar.
-DEFAULT_DB = os.environ.get("AUDIT_DB", "data/demo/demo.db")
+ROOT = Path(__file__).resolve().parents[1]  # app\ -> repo root
+DEFAULT_DB = os.environ.get("AUDIT_DB", str(ROOT / "data" / "demo" / "demo.db"))
 
 
 @st.cache_data(ttl=60)
 def run_query(db_path, sql, params=()):
     """Run a read-only query and return a DataFrame (cached for 60 s)."""
-    con = sqlite3.connect(db_path)
+    con = open_ro(db_path)
     try:
         return pd.read_sql_query(sql, con, params=params)
     finally:
@@ -42,7 +44,7 @@ def load_comparison(db_path, run_a, run_b):
 
     Also loads question, answers and judge reasoning for every fixed and
     newly broken case, per metric."""
-    con = sqlite3.connect(db_path)
+    con = open_ro(db_path)
     try:
         result = compare_runs(con, run_a, run_b)
         details = {}
@@ -60,7 +62,7 @@ def load_comparison(db_path, run_a, run_b):
 @st.cache_data(ttl=60)
 def load_run_stats(db_path, run_ids):
     """One row per run, from run_stats() in audit/compare.py (nothing recalculated)."""
-    con = sqlite3.connect(db_path)
+    con = open_ro(db_path)
     try:
         rows = []
         for rid in run_ids:

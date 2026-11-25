@@ -6,15 +6,15 @@ file for things that should never be public (client names, personal paths,
 real email addresses, API keys) and reports every hit.
 
 Step 1: see what is in your database
-    python scripts/make_demo_db.py list --source data/audit.db
+    python scripts/build_demo_db.py list --source data/audit.db
 
 Step 2: build the demo database from the fictional runs
-    python scripts/make_demo_db.py build --source data/audit.db \
+    python scripts/build_demo_db.py build --source data/audit.db \
         --out data/demo/demo.db --runs RUN_ID_1 RUN_ID_2 \
         --forbid "Client Name" "other private word"
 
 Step 3: re-check any database at any time
-    python scripts/make_demo_db.py scan --db data/demo/demo.db --forbid "Client Name"
+    python scripts/build_demo_db.py scan --db data/demo/demo.db --forbid "Client Name"
 """
 import argparse
 import re
@@ -82,7 +82,10 @@ def cmd_list(args):
         print(f"    first question: {sample}")
         if config:
             print(f"    config: {config}")
-    print("\nPick the runs that use ONLY fictional demo documents, then run the build command.")
+    print(
+        "\nPick the runs that use ONLY fictional demo documents, then run:\n"
+        "    python scripts/build_demo_db.py <baseline_run_id> <after_run_id>"
+    )
 
 
 # ------------------------------------------------------------------ scan

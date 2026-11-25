@@ -1,50 +1,31 @@
-# Python
+﻿# Secrets
+.env
+
+# Databases (the demo DB is allowed back in below)
+*.db
+*.db-wal
+*.db-shm
+backups/
+
+# Logs and caches
+judge_log.txt
 __pycache__/
-*.py[cod]
-*.egg-info/
-build/
-dist/
+*.pyc
 .pytest_cache/
 .ruff_cache/
 
-# Virtual environments
+# Environments
 .venv/
 venv/
-env/
 
-# Secrets
-.env
+# Personal notes
+notes/
 
-# Databases and caches
-*.db
-*.sqlite
+# Step 5: the prebuilt demo database MUST be tracked.
+# Change this path to wherever you save it.
+!data/demo/demo.db
 
-# Jupyter
-.ipynb_checkpoints/
-
-# Data: ignore everything except the fictional demo material
-data/*
-!data/.gitkeep
-!data/docs/
-!data/demo/
-data/clients/
-
-# Editors / OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-.env
-data/llm_cache.db
+# Generated
+*.egg-info/
 *.bak
-backups/
-
-.venv/
-__pycache__/
-data/audit.db
-data/audit_before_source_fix.db
-data/clients/
-.env
-
 out/
-day8_info.txt

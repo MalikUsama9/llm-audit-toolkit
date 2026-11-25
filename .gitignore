@@ -29,3 +29,6 @@ notes/
 *.egg-info/
 *.bak
 out/
+
+# LLM cache
+data/llm_cache.sqlite

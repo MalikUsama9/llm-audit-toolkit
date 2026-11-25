@@ -1,4 +1,4 @@
-﻿# Secrets
+# Secrets
 .env
 
 # Databases (the demo DB is allowed back in below)
@@ -30,5 +30,3 @@ notes/
 *.bak
 out/
 
-# LLM cache
-data/llm_cache.sqlite
